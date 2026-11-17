@@ -73,6 +73,10 @@
       <input id="barkodRucno" inputmode="numeric" placeholder="ili ukucaj barkod" autocomplete="off">
       <button class="tirk" onclick="traziRucno()">Traži</button>
     </div>
+    <div class="sitno" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span id="sifStatus">⏳ Učitavam šifarnik...</span>
+      <a href="#" style="color:var(--ljub2);font-weight:600;white-space:nowrap" onclick="ucitajSifarnik(true);return false;">↻ osveži</a>
+    </div>
   </section>
 
   <!-- 2. Artikal, rok, serija -->
@@ -253,8 +257,62 @@ function obradiKod(tekst) {
   traziBarkod(bk, dm);
 }
 
-// ---------- pretraga šifarnika ----------
+// ---------- šifarnik na telefonu ----------
+const SIF_SATI = 12;     // posle koliko sati se šifarnik osvežava
+let mapa = null;         // barkod -> [ID, ...]
+let nazivi = null;       // ID -> naziv
+
+function kljucB(s) { return String(s == null ? '' : s).replace(/\s/g, '').replace(/^0+/, ''); }
+
+function napraviMapu(s) {
+  nazivi = s.nazivi;
+  mapa = new Map();
+  s.barkodovi.forEach(par => {
+    const k = par[0], id = par[1];
+    if (!mapa.has(k)) mapa.set(k, []);
+    const l = mapa.get(k);
+    if (l.indexOf(id) < 0) l.push(id);
+  });
+  $('sifStatus').textContent = 'Šifarnik: ' + Object.keys(nazivi).length.toLocaleString('sr-RS') +
+    ' artikala · ' + new Date(s.vreme).toLocaleString('sr-RS', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+async function ucitajSifarnik(prisilno) {
+  if (!prisilno) {
+    try {
+      const t = localStorage.getItem('sr_sifarnik');
+      if (t) {
+        const s = JSON.parse(t);
+        napraviMapu(s);
+        if (Date.now() - s.vreme < SIF_SATI * 3600 * 1000) return;   // dovoljno svež
+      }
+    } catch (e) {}
+  }
+  const stari = $('sifStatus').textContent;
+  $('sifStatus').textContent = '⏳ Preuzimam šifarnik...';
+  try {
+    const s = await pozovi({ akcija: 'sifarnik' });
+    if (!s.ok) throw new Error(s.greska);
+    napraviMapu(s);
+    try { localStorage.setItem('sr_sifarnik', JSON.stringify(s)); } catch (e) {}
+    if (prisilno) poruka('✔ Šifarnik osvežen');
+  } catch (e) {
+    $('sifStatus').textContent = mapa ? stari : 'Šifarnik nije preuzet – pretraga ide preko tabele.';
+    if (prisilno) poruka('Šifarnik nije osvežen. Proveri internet.', 'var(--crv)');
+  }
+}
+
+// ---------- pretraga barkoda ----------
 async function traziBarkod(bk, dm) {
+  // 1) odmah, iz šifarnika na telefonu
+  if (mapa) {
+    const ids = mapa.get(kljucB(bk));
+    if (ids && ids.length) {
+      prikaziArtikle(ids.map(id => ({ id: id, naziv: nazivi[id] || '' })), String(bk).trim(), dm);
+      return;
+    }
+  }
+  // 2) nema ga na telefonu (možda nov artikal) – pitaj tabelu
   $('ekSken').classList.add('ucitava');
   try {
     const o = await pozovi({ akcija: 'barkod', barkod: bk });
@@ -264,34 +322,38 @@ async function traziBarkod(bk, dm) {
       pokreniKameru();
       return;
     }
-    ocistiFormu();
-    pokazi('ekSken', false);
-    pokazi('ekArtikal', true);
-
-    if (dm.rok) {
-      $('rok').value = dm.rok;
-      proveriRok();
-      prikaziInfo('Rok pročitan iz 2D koda – proveri.', 'info');
-    }
-    if (dm.serija) $('serija').value = dm.serija;
-
-    if (o.artikli.length === 1) {
-      izaberi(o.artikli[0], o.barkod);
-    } else {
-      pokazi('izabran', false);
-      $('izbor').innerHTML = '<div class="sitno">Ovaj barkod ima više artikala. Izaberi pravi:</div>';
-      o.artikli.forEach(a => {
-        const b = document.createElement('button');
-        b.textContent = a.naziv + '  (ID ' + a.id + ')';
-        b.onclick = () => izaberi(a, o.barkod);
-        $('izbor').appendChild(b);
-      });
-    }
+    prikaziArtikle(o.artikli, o.barkod, dm);
   } catch (e) {
     poruka('Nema veze sa tabelom. Proveri internet.', 'var(--crv)');
     pokreniKameru();
   } finally {
     $('ekSken').classList.remove('ucitava');
+  }
+}
+
+function prikaziArtikle(artikli, bk, dm) {
+  ocistiFormu();
+  pokazi('ekSken', false);
+  pokazi('ekArtikal', true);
+
+  if (dm.rok) {
+    $('rok').value = dm.rok;
+    proveriRok();
+    prikaziInfo('Rok pročitan iz 2D koda – proveri.', 'info');
+  }
+  if (dm.serija) $('serija').value = dm.serija;
+
+  if (artikli.length === 1) {
+    izaberi(artikli[0], bk);
+  } else {
+    pokazi('izabran', false);
+    $('izbor').innerHTML = '<div class="sitno">Ovaj barkod ima više artikala. Izaberi pravi:</div>';
+    artikli.forEach(a => {
+      const b = document.createElement('button');
+      b.textContent = a.naziv + '  (ID ' + a.id + ')';
+      b.onclick = () => izaberi(a, bk);
+      $('izbor').appendChild(b);
+    });
   }
 }
 
@@ -345,7 +407,7 @@ function smanji(f) {
     const img = new Image();
     const u = URL.createObjectURL(f);
     img.onload = () => {
-      const max = 2000;
+      const max = 1400;
       let w = img.naturalWidth, h = img.naturalHeight;
       const k = Math.min(1, max / Math.max(w, h));
       w = Math.round(w * k); h = Math.round(h * k);
@@ -353,7 +415,7 @@ function smanji(f) {
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(u);
-      res(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+      res(c.toDataURL('image/jpeg', 0.8).split(',')[1]);
     };
     img.onerror = rej;
     img.src = u;
@@ -459,6 +521,8 @@ APOTEKE.forEach(a => {
   o.value = a; o.textContent = a;
   $('izborApoteke').appendChild(o);
 });
+
+ucitajSifarnik(false);
 
 apoteka = citajApoteku();
 if (!apoteka) {
