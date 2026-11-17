@@ -36,7 +36,7 @@
   .naziv{font-size:18px;font-weight:700}
   .sitno{color:#666;font-size:14px}
   label{display:block;font-weight:600;margin:14px 0 4px;color:#444}
-  .upoz{margin-top:8px;padding:10px;border-radius:10px;font-weight:600;display:none}
+  .upoz{margin-top:8px;padding:10px;border-radius:10px;font-weight:600;display:none;white-space:pre-line}
   .upoz.crveno{display:block;background:#fdecea;color:var(--crv)}
   .upoz.narand{display:block;background:#fff3e0;color:#e65100}
   .upoz.info{display:block;background:#e0f7fa;color:#006064}
@@ -95,14 +95,23 @@
       <input id="rok" inputmode="numeric" placeholder="npr. 0328" autocomplete="off">
       <div id="upozRok" class="upoz"></div>
 
-      <label for="serija">Serija</label>
-      <input id="serija" autocomplete="off" autocapitalize="characters" placeholder="nije obavezno">
+      <label for="serija">Serija <span class="sitno">(sama se popunjava iz roka)</span></label>
+      <input id="serija" autocomplete="off" autocapitalize="characters" placeholder="npr. MART 2027">
 
       <div class="red">
         <button class="okvir" onclick="nazad()">Otkaži</button>
         <button class="zeleno" style="flex:1" onclick="sacuvaj()">✔ Sačuvaj</button>
       </div>
     </div>
+  </section>
+
+  <!-- Podešavanje -->
+  <section class="kartica">
+    <h2>Model za čitanje roka</h2>
+    <select id="model">
+      <option value="gemini-2.5-flash">Obični (gemini-2.5-flash)</option>
+      <option value="gemini-2.5-flash-lite">Brži (gemini-2.5-flash-lite)</option>
+    </select>
   </section>
 
   <!-- Poslednji unosi -->
@@ -341,7 +350,6 @@ function prikaziArtikle(artikli, bk, dm) {
     proveriRok();
     prikaziInfo('Rok pročitan iz 2D koda – proveri.', 'info');
   }
-  if (dm.serija) $('serija').value = dm.serija;
 
   if (artikli.length === 1) {
     izaberi(artikli[0], bk);
@@ -370,6 +378,7 @@ function ocistiFormu() {
   trenutni = null;
   $('rok').value = '';
   $('serija').value = '';
+  serijaRucno = false;
   $('upozRok').className = 'upoz';
   $('izbor').innerHTML = '';
   sakrijInfo();
@@ -387,13 +396,16 @@ $('foto').addEventListener('change', async () => {
   prikaziInfo('⏳ Čitam rok sa slike...', 'info');
   $('ekArtikal').classList.add('ucitava');
   try {
+    const t0 = Date.now();
     const b64 = await smanji(f);
-    const o = await pozovi({ akcija: 'procitaj', slika: b64, tip: 'image/jpeg' });
-    if (!o.ok) { prikaziInfo(o.greska, 'crveno'); return; }
+    const o = await pozovi({ akcija: 'procitaj', slika: b64, tip: 'image/jpeg', model: $('model').value });
+    const ukupno = ((Date.now() - t0) / 1000).toFixed(1).replace('.', ',');
+    if (!o.ok) { prikaziInfo(o.greska + '  (⏱ ' + ukupno + ' s)', 'crveno'); return; }
     if (o.rok) { $('rok').value = o.rok; proveriRok(); }
-    if (o.serija) $('serija').value = o.serija;
-    if (!o.rok) prikaziInfo('Rok nije pročitan. Slikaj bliže ili ga ukucaj.', 'narand');
-    else prikaziInfo('Na kutiji: ' + (o.procitano || o.rok) + ' – proveri pre čuvanja.', 'info');
+    const vreme = '⏱ Gemini ' + (o.msGemini / 1000).toFixed(1).replace('.', ',') + ' s · ukupno ' + ukupno +
+                  ' s · ' + String(o.model || '').replace('gemini-', '');
+    if (!o.rok) prikaziInfo('Rok nije pročitan. Slikaj bliže ili ga ukucaj.\n' + vreme, 'narand');
+    else prikaziInfo('Na kutiji: ' + (o.procitano || o.rok) + ' – proveri pre čuvanja.\n' + vreme, 'info');
   } catch (e) {
     prikaziInfo('Greška pri slanju slike. Probaj ponovo.', 'crveno');
   } finally {
@@ -407,7 +419,7 @@ function smanji(f) {
     const img = new Image();
     const u = URL.createObjectURL(f);
     img.onload = () => {
-      const max = 1400;
+      const max = 1024;
       let w = img.naturalWidth, h = img.naturalHeight;
       const k = Math.min(1, max / Math.max(w, h));
       w = Math.round(w * k); h = Math.round(h * k);
@@ -456,8 +468,17 @@ function proveriRok(konacno) {
   else if (razlika === 0) { u.className = 'upoz narand'; u.textContent = '⚠ Rok ističe ovog meseca.'; }
   else if (razlika < 6) { u.className = 'upoz narand'; u.textContent = '⚠ Kratak rok – ističe za ' + razlika + ' mes.'; }
   else u.className = 'upoz';
+  if (!serijaRucno) $('serija').value = serijaIzRoka(n);
   return n;
 }
+
+// Serija = rok rečima, npr. 03/2027 -> MART 2027
+const MESECI = ['JANUAR', 'FEBRUAR', 'MART', 'APRIL', 'MAJ', 'JUN', 'JUL',
+                'AVGUST', 'SEPTEMBAR', 'OKTOBAR', 'NOVEMBAR', 'DECEMBAR'];
+let serijaRucno = false;   // true kad zaposleni sam prepravi seriju
+function serijaIzRoka(n) { return MESECI[n.mm - 1] + ' ' + n.g; }
+
+$('serija').addEventListener('input', () => { serijaRucno = $('serija').value.trim() !== ''; });
 
 // ---------- čuvanje ----------
 async function sacuvaj() {
@@ -471,7 +492,7 @@ async function sacuvaj() {
     barkod: trenutni.barkod,
     id: trenutni.id,
     naziv: trenutni.naziv,
-    serija: $('serija').value.trim(),
+    serija: $('serija').value.trim() || serijaIzRoka(n),
     rok: n.tekst,
     apoteka: apoteka
   };
@@ -523,6 +544,10 @@ APOTEKE.forEach(a => {
 });
 
 ucitajSifarnik(false);
+
+// zapamćen izbor modela
+try { const m = localStorage.getItem('sr_model'); if (m) $('model').value = m; } catch (e) {}
+$('model').addEventListener('change', () => { try { localStorage.setItem('sr_model', $('model').value); } catch (e) {} });
 
 apoteka = citajApoteku();
 if (!apoteka) {
