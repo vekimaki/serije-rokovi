@@ -1,1416 +1,473 @@
 <!DOCTYPE html>
 <html lang="sr">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="theme-color" content="#6a1b9a">
-<title>Alfa lek · Roba</title>
-<!--
-  ALFA LEK · ROBA - zajednička aplikacija za telefon i računar (GitHub Pages)
-  Verzija 1.2 (17. 11. 2026) - 🔄 Osveži šifarnik radi sa servera (skripta Pakovanje 2.2), rezultat se vidi u aplikaciji
-  Verzija 1.1 (17. 11. 2026) - pločica Pakovanje (skripta Pakovanje 2.0)
-  Verzija 1.0 (16. 11. 2026)
-    - početni ekran sa pločicama: Prijem robe (sada), Pakovanje i Popis (kasnije)
-    - svaka pločica ima svoju skriptu (/exec) i svoj ključ; korisnik vidi samo pločice čiji ključ skripta prihvata;
-      ako vidi samo jednu, aplikacija odmah otvara nju
-    - zajedničko skeniranje: kamera uživo, slikanje barkoda, kucanje i BAR KOD ČITAČ (radi kao tastatura)
-    - prekidač Brzo (svako skeniranje = 1 kom odmah) / Sa karticom (kartica sa količinom, Enter čuva)
-    - Prijem robe = isto kao verzija 4.2 (čuvanje u pozadini, brisanje prijema, provera)
-  Link: https://vekimaki.github.io/roba/?k=KLJUČ  (ključevi su u tabu Apoteke u tabeli Prijem robe)
--->
+<title>Serije i rokovi – Alfa lek</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-  :root {
-    --ljub: #6a1b9a; --ljub2: #8e24aa;
-    --njezna: #8a6fc4; --plava: #5b7a99; --obrub: #6f4fb8;
-    --zel: #43a047; --crv: #c62828; --nar: #fb8c00; --siva: #6b6b6b;
-    --poz: #f5f5f7; --bela: #ffffff; --tekst: #212121; --dok: #ede7f6;
+  :root{
+    --ljub:#6a1b9a; --ljub2:#8e24aa; --tirk:#00acc1; --nar:#fb8c00;
+    --zel:#2e7d32; --zel2:#43a047; --crv:#d32f2f; --poz:#f5f3fa;
   }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--poz); color: var(--tekst); font-size: 15px; }
-  header { background: linear-gradient(90deg, var(--ljub), var(--ljub2)); color: #fff; padding: 9px 12px;
-    display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 16px; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  header button { background: rgba(255,255,255,.18); border: 0; color: #fff; font-size: 16px; border-radius: 9px; padding: 5px 9px; }
-  main { padding: 10px; max-width: 640px; margin: 0 auto; }
-
-  .dugme { display: block; width: 100%; border: 0; border-radius: 12px; padding: 11px; font-size: 16px; font-weight: bold;
-    color: #fff; margin: 6px 0; cursor: pointer; }
-  .dugme:disabled { opacity: .45; }
-  .zeleno { background: var(--zel); } .njezno { background: var(--njezna); } .plavo { background: var(--plava); }
-  .obrub { background: #fff; color: var(--obrub); border: 2px solid var(--obrub); }
-  .obrub-crv { background: #fff; color: var(--crv); border: 2px solid var(--crv); }
-  .malo { padding: 7px 10px; font-size: 14px; border-radius: 9px; width: auto; display: inline-block; margin: 0; }
-  .red2 { display: flex; gap: 8px; } .red2 .dugme { flex: 1; }
-
-  .kartica { background: var(--bela); border-radius: 12px; padding: 9px 12px; margin: 6px 0; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  .kartica.klik { cursor: pointer; }
-  .naslov { font-weight: bold; font-size: 15px; }
-  .sitno { color: var(--siva); font-size: 12px; margin-top: 3px; }
-  .grupa { font-weight: bold; color: var(--ljub); margin: 14px 4px 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
-
-  /* početni ekran */
-  .pozdrav { margin: 8px 4px 12px; color: #444; }
-  .ploca { display: flex; align-items: center; gap: 14px; background: #fff; border-radius: 16px; padding: 14px; margin: 10px 0;
-    box-shadow: 0 1px 4px rgba(0,0,0,.14); cursor: pointer; }
-  .ploca .ik { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #fff; flex: 0 0 52px; }
-  .ploca .ime { font-weight: bold; font-size: 17px; }
-  .ploca.nedostupno { opacity: .5; cursor: default; }
-
-  /* okvir dokumenta */
-  .dokument { background: var(--dok); border-left: 6px solid var(--ljub); border-radius: 12px; padding: 10px 12px; margin: 4px 0 6px; box-shadow: 0 1px 3px rgba(0,0,0,.10); }
-  .dokument .oznaka { font-size: 12px; font-weight: bold; color: var(--ljub); text-transform: uppercase; letter-spacing: .6px; }
-  .dokument .naslov { font-size: 17px; margin-top: 2px; }
-  .dokRed { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #fff; border-radius: 10px; padding: 7px 10px; margin-top: 8px; }
-  .dokRed .vr { font-size: 16px; font-weight: bold; } .dokRed .lbl { font-size: 12px; color: var(--siva); }
-  .dokument input { font-size: 16px; padding: 8px; }
-  .razmak { height: 6px; }
-  .deo { font-weight: bold; color: #444; margin: 16px 4px 2px; font-size: 14px; }
-
-  .cip { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: bold; color: #fff; float: right; }
-  .st-Skeniranje { background: #1e88e5; } .st-Za-proveru { background: var(--nar); } .st-U-redu { background: var(--zel); }
-  .st-Ima-grešaka { background: var(--crv); } .st-Nema-dokumenta { background: #757575; }
-
-  label { display: block; font-size: 13px; color: var(--siva); margin: 10px 0 3px; }
-  input, select, textarea { width: 100%; font-size: 16px; padding: 9px 10px; border: 2px solid #d1c4e9; border-radius: 10px; background: #fff; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ljub2); }
-  .izbor { display: flex; gap: 8px; } .izbor button { flex: 1; padding: 10px; font-size: 15px; border-radius: 10px; border: 2px solid var(--obrub);
-    background: #fff; color: var(--obrub); font-weight: bold; } .izbor button.akt { background: var(--obrub); color: #fff; }
-
-  /* prekidač režima skeniranja */
-  .prekidac { display: flex; background: #e8e3f3; border-radius: 10px; padding: 3px; gap: 3px; margin: 2px 0 8px; }
-  .prekidac button { flex: 1; border: 0; background: transparent; padding: 8px 6px; border-radius: 8px; font-size: 14px; font-weight: bold; color: var(--obrub); }
-  .prekidac button.akt { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
-  .prekidac button:focus { outline: none; }
-  .alatke { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .link { background: none; border: 0; color: var(--obrub); font-size: 13px; font-weight: bold; padding: 4px 0; text-decoration: underline; }
-
-  .komad { color: var(--crv); font-weight: bold; }
-  .upoz { background: #ffebee; color: var(--crv); border-radius: 10px; padding: 8px 10px; font-weight: bold; margin: 8px 0; }
-  .info { background: #eef1f6; color: #33475b; border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
-  .ok { background: #e8f5e9; color: #1b5e20; border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-weight: bold; }
-  .greska { background: #ffebee; color: var(--crv); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
-
-  .kol { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-  .kol button { width: 52px; height: 52px; font-size: 26px; border-radius: 12px; border: 2px solid var(--obrub); background: #fff; color: var(--obrub); font-weight: bold; }
-  .kol input { text-align: center; font-size: 24px; font-weight: bold; height: 52px; }
-
-  #video { width: 100%; border-radius: 14px; background: #000; max-height: 42vh; object-fit: cover; display: block; }
-  .okvir { position: relative; overflow: hidden; border-radius: 14px; }
-  .nisan { position: absolute; left: 12%; right: 12%; top: 38%; height: 24%; border: 3px solid rgba(255,255,255,.9); border-radius: 10px; pointer-events: none;
-    box-shadow: 0 0 0 9999px rgba(0,0,0,.18); }
-  .poslednje { background: #fff; border-radius: 12px; padding: 6px 12px; margin: 8px 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-  .poslednje .r { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #eee; font-size: 14px; }
-  .poslednje .r:last-child { border-bottom: 0; }
-
-  .stavka { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-  .stavka .k { font-size: 18px; font-weight: bold; color: var(--ljub); white-space: nowrap; }
-  .legenda span { display: inline-block; margin: 2px 4px 2px 0; padding: 3px 8px; border-radius: 8px; font-size: 13px; font-weight: bold; }
-
-  #cekaj { position: fixed; inset: 0; background: rgba(255,255,255,.7); display: none; align-items: center; justify-content: center; z-index: 20;
-    font-size: 18px; font-weight: bold; color: var(--ljub); flex-direction: column; gap: 12px; }
-  .vrtesca { width: 44px; height: 44px; border: 5px solid #d1c4e9; border-top-color: var(--ljub2); border-radius: 50%; animation: vrti 1s linear infinite; }
-  @keyframes vrti { to { transform: rotate(360deg); } }
-  #poruka { position: fixed; left: 12px; right: 12px; bottom: 16px; padding: 11px; border-radius: 12px; color: #fff; font-weight: bold;
-    display: none; z-index: 30; text-align: center; font-size: 15px; }
-  .skriveno { display: none !important; }
-  .ceka { color: #8a6fc4; font-size: 12px; font-weight: bold; }
-  .filter { margin: 4px 0 8px; }
-  .verzija { text-align: center; color: #aaa; font-size: 11px; margin: 24px 0 8px; }
-  /* Pakovanje */
-  .st-Za-pakovanje { background: #e53935; } .st-U-toku { background: var(--nar); } .st-Za-izveštaj { background: var(--nar); }
-  .st-Završeno { background: var(--zel); } .st-Završeno---razlike { background: var(--crv); }
-  .napredak { font-size: 13px; color: var(--siva); }
-  .kNaziv { font-size: 20px; font-weight: bold; margin: 4px 0; }
-  .kKol { font-size: 22px; font-weight: bold; color: var(--ljub); margin: 6px 0; }
-  .traka { height: 8px; background: #e0d7f1; border-radius: 4px; overflow: hidden; margin-top: 6px; }
-  .traka div { height: 100%; background: var(--zel); }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--poz);color:#222}
+  header{background:linear-gradient(135deg,var(--ljub),var(--ljub2));color:#fff;padding:14px 16px;
+         display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+  header h1{font-size:19px;margin:0}
+  #apotekaOzn{background:rgba(255,255,255,.22);padding:5px 12px;border-radius:14px;font-size:14px;cursor:pointer}
+  main{max-width:520px;margin:0 auto;padding:12px}
+  .kartica{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;
+           box-shadow:0 2px 6px rgba(0,0,0,.08);border-top:5px solid var(--tirk)}
+  .kartica.nar{border-top-color:var(--nar)}
+  .kartica.lj{border-top-color:var(--ljub)}
+  h2{font-size:16px;margin:0 0 10px;color:var(--ljub)}
+  #kamera{width:100%;border-radius:10px;overflow:hidden;background:#000;min-height:220px}
+  .red{display:flex;gap:8px;margin-top:10px}
+  input,select{font-size:18px;padding:12px;border:2px solid #d6cce6;border-radius:10px;width:100%;background:#fff}
+  input:focus,select:focus{outline:none;border-color:var(--tirk)}
+  button{font-size:17px;font-weight:600;padding:13px 16px;border:none;border-radius:10px;cursor:pointer;color:#fff;background:var(--ljub2)}
+  button:active{transform:scale(.98)}
+  .zeleno{background:var(--zel2)}
+  .tirk{background:var(--tirk)}
+  .nard{background:var(--nar)}
+  .okvir{background:#fff;color:var(--ljub2);border:2px solid var(--ljub2)}
+  .puno{width:100%}
+  .naziv{font-size:18px;font-weight:700}
+  .sitno{color:#666;font-size:14px}
+  label{display:block;font-weight:600;margin:14px 0 4px;color:#444}
+  .upoz{margin-top:8px;padding:10px;border-radius:10px;font-weight:600;display:none}
+  .upoz.crveno{display:block;background:#fdecea;color:var(--crv)}
+  .upoz.narand{display:block;background:#fff3e0;color:#e65100}
+  .upoz.info{display:block;background:#e0f7fa;color:#006064}
+  .izbor button{display:block;width:100%;margin-top:8px;text-align:left;background:#fff;color:#222;border:2px solid var(--tirk)}
+  #poruka{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:12px 20px;border-radius:12px;
+          color:#fff;font-weight:600;display:none;z-index:9;max-width:90%;text-align:center}
+  .ucitava{opacity:.55;pointer-events:none}
+  ul{list-style:none;padding:0;margin:0}
+  li{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  li b{color:var(--ljub)}
+  .skriveno{display:none !important}
 </style>
 </head>
 <body>
+
 <header>
-  <button id="nazad" class="skriveno" onclick="nazad()">←</button>
-  <h1 id="naslov">Alfa lek · Roba</h1>
-  <button id="kuca" class="skriveno" onclick="pocetna()" title="Početna">⌂</button>
-  <button onclick="osvezi()" title="Osveži">↻</button>
+  <h1>📦 Serije i rokovi</h1>
+  <span id="apotekaOzn" onclick="promeniApoteku()">—</span>
 </header>
-<main id="ekran"></main>
-<div id="cekaj"><div class="vrtesca"></div><div id="cekajTekst">Učitavam...</div></div>
+
+<main>
+  <!-- Izbor apoteke (samo ako nije u linku) -->
+  <section id="ekApoteka" class="kartica lj skriveno">
+    <h2>Izaberi apoteku</h2>
+    <select id="izborApoteke"></select>
+    <button class="zeleno puno" style="margin-top:10px" onclick="sacuvajApoteku()">Potvrdi</button>
+  </section>
+
+  <!-- 1. Skeniranje -->
+  <section id="ekSken" class="kartica skriveno">
+    <h2>1. Skeniraj barkod</h2>
+    <div id="kamera"></div>
+    <div class="red">
+      <input id="barkodRucno" inputmode="numeric" placeholder="ili ukucaj barkod" autocomplete="off">
+      <button class="tirk" onclick="traziRucno()">Traži</button>
+    </div>
+  </section>
+
+  <!-- 2. Artikal, rok, serija -->
+  <section id="ekArtikal" class="kartica nar skriveno">
+    <h2>2. Artikal</h2>
+    <div id="izbor" class="izbor"></div>
+    <div id="izabran">
+      <div class="naziv" id="nazivA"></div>
+      <div class="sitno">ID: <b id="idA"></b> · Barkod: <span id="bkA"></span></div>
+
+      <button class="nard puno" style="margin-top:12px" onclick="slikaj()">📷 Slikaj rok i seriju</button>
+      <input type="file" id="foto" accept="image/*" capture="environment" class="skriveno">
+      <div id="infoSlika" class="upoz"></div>
+
+      <label for="rok">Rok (MM/GGGG)</label>
+      <input id="rok" inputmode="numeric" placeholder="npr. 0328" autocomplete="off">
+      <div id="upozRok" class="upoz"></div>
+
+      <label for="serija">Serija</label>
+      <input id="serija" autocomplete="off" autocapitalize="characters" placeholder="nije obavezno">
+
+      <div class="red">
+        <button class="okvir" onclick="nazad()">Otkaži</button>
+        <button class="zeleno" style="flex:1" onclick="sacuvaj()">✔ Sačuvaj</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Poslednji unosi -->
+  <section class="kartica lj">
+    <h2>Poslednji unosi sa ovog telefona</h2>
+    <ul id="lista"><li class="sitno">Još ništa.</li></ul>
+  </section>
+</main>
+
 <div id="poruka"></div>
-<input type="file" id="foto" accept="image/*" capture="environment" class="skriveno">
 
 <script>
-const VERZIJA_APP = '1.2';
-const K = (new URLSearchParams(location.search).get('k') || '').trim();
+const URL_SKRIPTE = 'https://script.google.com/macros/s/AKfycbzAfu8l60RpauzdzhOI5DLG7fOFFMyFTBkm8eo7WpN7pN_-G4Ri88b5XhWUr1rApEmrxQ/exec';
+const APOTEKE = ['Zmajevo', 'Karavukovo', 'Klisa', 'Evropa', 'Detelinara', 'Ravno Selo', 'Magacin'];
 
-/* ================= MODULI (pločice) =================
-   api = Web app URL skripte (/exec). Pločica bez api-ja se ne prikazuje. */
-const MODULI = [
-  { id: 'prijem', naziv: 'Prijem robe', opis: 'Kontrola primljene robe', ikona: '📦', boja: '#8a6fc4',
-    api: 'https://script.google.com/macros/s/AKfycbyh8jTOQ9DcD7grsnin_ZiGMzEFZPGETWaHKZ43hv-s8rS1U4Czou3sOKP4YhFbGSPKzw/exec',
-    otvori: function (r) { prijemStart(r); } },
-  { id: 'pakovanje', naziv: 'Pakovanje', opis: 'Pakovanje internih prenosa u magacinu', ikona: '🚚', boja: '#00acc1',
-    api: 'https://script.google.com/macros/s/AKfycbzGorQoaUsL5UKUJpMxepqo1sFj8LLEMfJ3SHUGvEkrvkxtL0I5WZ2muoJLQGXeYQTK/exec',
-    otvori: function (r) { pakStart(r); } },
-  { id: 'popis', naziv: 'Popis', opis: 'Popis robe', ikona: '📋', boja: '#fb8c00', api: '', otvori: null }
-];
-const APP = { dostupni: [], aktivni: null };
+let apoteka = '';
+let trenutni = null;     // {id, naziv, barkod}
+let skener = null;
+let kameraRadi = false;
+let obrada = false;      // sprečava dvostruko skeniranje
+const unosi = [];
 
-/* Poziv funkcije u skripti (POST, običan tekst - bez dodatne dozvole pretraživača). */
-function poziv(url, fn, args) {
-  return fetch(url, { method: 'POST', body: JSON.stringify({ fn: fn, k: K, args: args || [] }) })
-    .catch(function () { throw new Error('Nema veze sa serverom. Proverite internet i pokušajte ponovo.'); })
-    .then(function (r) { return r.text(); })
-    .then(function (t) {
-      let o;
-      try { o = JSON.parse(t); } catch (e) { throw new Error('Server je vratio neočekivan odgovor. Pokušajte ponovo.'); }
-      if (!o.ok) throw new Error(o.greska || 'Greška na serveru.');
-      return o.rez;
-    });
-}
-function modul(id) { return MODULI.filter(function (m) { return m.id === id; })[0]; }
-
-/* ================= POMOĆNE ================= */
-function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// ---------- pomoćne ----------
 function $(id) { return document.getElementById(id); }
-function cekaj(t) { $('cekajTekst').textContent = t || 'Učitavam...'; $('cekaj').style.display = 'flex'; }
-function gotovo() { $('cekaj').style.display = 'none'; }
+function pokazi(id, da) { $(id).classList.toggle('skriveno', !da); }
+
 function poruka(t, boja) {
-  const p = $('poruka'); p.textContent = t; p.style.background = boja || '#43a047'; p.style.display = 'block';
-  clearTimeout(poruka.t); poruka.t = setTimeout(function () { p.style.display = 'none'; }, 3500);
-}
-function greska(e) { gotovo(); poruka((e && e.message) ? e.message : String(e), '#c62828'); }
-function lsGet(k) { try { const v = localStorage.getItem('roba_' + k); return v !== null ? v : localStorage.getItem('prijem_' + k); } catch (e) { return null; } }
-function lsSet(k, v) { try { localStorage.setItem('roba_' + k, v); } catch (e) {} }
-function cipStatusa(st) { return '<span class="cip st-' + esc(String(st).replace(/ /g, '-')) + '">' + esc(st) + '</span>'; }
-function confirmLako(t) { try { return window.confirm(t); } catch (e) { return true; } }
-function jeRacunar() { return !('ontouchstart' in window) && !(navigator.maxTouchPoints > 0); }
-function zvuk(ok) {
-  try { if (navigator.vibrate) navigator.vibrate(ok ? 80 : [80, 60, 80]); } catch (e) {}
-  try {
-    const c = new (window.AudioContext || window.webkitAudioContext)(); const o = c.createOscillator();
-    o.frequency.value = ok ? 1200 : 300; o.connect(c.destination); o.start(); setTimeout(function () { o.stop(); c.close(); }, 120);
-  } catch (e) {}
-}
-function postaviNaslov(t, nazadVidljivo) {
-  $('naslov').textContent = t; $('nazad').classList.toggle('skriveno', !nazadVidljivo);
-  $('kuca').classList.toggle('skriveno', APP.dostupni.length < 2 || S.ekran === 'pocetna');
+  const p = $('poruka');
+  p.textContent = t;
+  p.style.background = boja || 'var(--zel)';
+  p.style.display = 'block';
+  clearTimeout(p._t);
+  p._t = setTimeout(() => { p.style.display = 'none'; }, 2800);
 }
 
-/* ================= POČETAK I POČETNI EKRAN ================= */
-function start() {
-  if (!K) {
-    $('ekran').innerHTML = '<div class="greska">Link nije potpun (nedostaje ključ). Otvorite link koji ste dobili.</div>';
-    return;
+async function pozovi(podaci) {
+  const r = await fetch(URL_SKRIPTE, { method: 'POST', body: JSON.stringify(podaci) });
+  return await r.json();
+}
+
+function prikaziInfo(t, klasa) {
+  const d = $('infoSlika');
+  d.className = 'upoz ' + klasa;
+  d.textContent = t;
+}
+function sakrijInfo() { $('infoSlika').className = 'upoz'; }
+
+// ---------- apoteka ----------
+function citajApoteku() {
+  const p = new URLSearchParams(location.search).get('apoteka');
+  if (p) return p;
+  try { return localStorage.getItem('sr_apoteka') || ''; } catch (e) { return ''; }
+}
+
+function promeniApoteku() {
+  zaustaviKameru();
+  pokazi('ekSken', false);
+  pokazi('ekArtikal', false);
+  pokazi('ekApoteka', true);
+  if (apoteka) $('izborApoteke').value = apoteka;
+}
+
+function sacuvajApoteku() {
+  apoteka = $('izborApoteke').value;
+  try { localStorage.setItem('sr_apoteka', apoteka); } catch (e) {}
+  $('apotekaOzn').textContent = apoteka;
+  pokazi('ekApoteka', false);
+  nazad();
+}
+
+// ---------- kamera ----------
+async function pokreniKameru() {
+  obrada = false;
+  if (kameraRadi) return;
+  try {
+    if (!skener) {
+      const F = Html5QrcodeSupportedFormats;
+      skener = new Html5Qrcode('kamera', {
+        formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.DATA_MATRIX],
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        verbose: false
+      });
+    }
+    await skener.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: (w, h) => ({ width: Math.max(60, Math.floor(w * 0.85)), height: Math.max(60, Math.floor(Math.min(w, h) * 0.45)) }) },
+      naSken,
+      () => {}
+    );
+    kameraRadi = true;
+  } catch (e) {
+    skener = null;
+    $('kamera').innerHTML = '<div style="color:#fff;padding:24px;text-align:center">Kamera nije dostupna.<br>Ukucaj barkod ispod.</div>';
   }
-  cekaj('Učitavam...');
-  const sa = MODULI.filter(function (m) { return m.api; });
-  Promise.all(sa.map(function (m) {
-    return poziv(m.api, 'apiPocetak').then(function (r) { return { m: m, r: r }; }, function (e) { return { m: m, e: e }; });
-  })).then(function (lista) {
-    gotovo();
-    APP.dostupni = lista.filter(function (x) { return !x.e; });
-    if (!APP.dostupni.length) {
-      const g = lista[0] && lista[0].e;
-      $('ekran').innerHTML = '<div class="greska">' + esc(g ? g.message : 'Nijedan deo aplikacije nije dostupan.') + '</div>' +
-        '<button class="dugme obrub" onclick="start()">Pokušaj ponovo</button>';
+}
+
+async function zaustaviKameru() {
+  if (skener && kameraRadi) {
+    try { await skener.stop(); } catch (e) {}
+  }
+  kameraRadi = false;
+}
+
+function naSken(tekst) {
+  if (obrada) return;
+  obrada = true;
+  zaustaviKameru();
+  if (navigator.vibrate) navigator.vibrate(80);
+  obradiKod(tekst);
+}
+
+function traziRucno() {
+  const v = $('barkodRucno').value.trim();
+  if (!v || obrada) return;
+  obrada = true;
+  zaustaviKameru();
+  obradiKod(v);
+}
+
+// ---------- 2D kod (GS1 DataMatrix): GTIN, rok, serija ----------
+function gs1(t) {
+  const s = String(t).replace(/^\](d2|C1|Q3)/, '');
+  if (!/^01\d{14}/.test(s)) return null;
+  const r = {};
+  let i = 0;
+  while (i < s.length) {
+    if (s[i] === '\x1d') { i++; continue; }
+    const ai = s.substr(i, 2);
+    if (ai === '01') { r.gtin = s.substr(i + 2, 14); i += 16; }
+    else if (ai === '17') { r.rok = s.substr(i + 2, 6); i += 8; }
+    else if (ai === '11' || ai === '15') { i += 8; }
+    else if (ai === '10' || ai === '21') {
+      let j = s.indexOf('\x1d', i + 2);
+      if (j < 0) j = s.length;
+      if (ai === '10') r.serija = s.substring(i + 2, j);
+      i = j;
+    }
+    else break;
+  }
+  return r.gtin ? r : null;
+}
+
+function obradiKod(tekst) {
+  const g = gs1(tekst);
+  let bk = String(tekst).trim();
+  const dm = { rok: '', serija: '' };
+  if (g) {
+    bk = g.gtin.replace(/^0/, '');
+    if (g.rok) dm.rok = g.rok.substr(2, 2) + '/20' + g.rok.substr(0, 2);
+    dm.serija = g.serija || '';
+  }
+  traziBarkod(bk, dm);
+}
+
+// ---------- pretraga šifarnika ----------
+async function traziBarkod(bk, dm) {
+  $('ekSken').classList.add('ucitava');
+  try {
+    const o = await pozovi({ akcija: 'barkod', barkod: bk });
+    if (!o.ok) {
+      poruka(o.greska, 'var(--crv)');
+      $('barkodRucno').value = '';
+      pokreniKameru();
       return;
     }
-    ucitajSifarnik().catch(function (e) { poruka('Šifarnik nije učitan: ' + e.message, '#c62828'); });
-    if (APP.dostupni.length === 1) return otvoriModul(APP.dostupni[0].m.id);
-    pocetna();
+    ocistiFormu();
+    pokazi('ekSken', false);
+    pokazi('ekArtikal', true);
+
+    if (dm.rok) {
+      $('rok').value = dm.rok;
+      proveriRok();
+      prikaziInfo('Rok pročitan iz 2D koda – proveri.', 'info');
+    }
+    if (dm.serija) $('serija').value = dm.serija;
+
+    if (o.artikli.length === 1) {
+      izaberi(o.artikli[0], o.barkod);
+    } else {
+      pokazi('izabran', false);
+      $('izbor').innerHTML = '<div class="sitno">Ovaj barkod ima više artikala. Izaberi pravi:</div>';
+      o.artikli.forEach(a => {
+        const b = document.createElement('button');
+        b.textContent = a.naziv + '  (ID ' + a.id + ')';
+        b.onclick = () => izaberi(a, o.barkod);
+        $('izbor').appendChild(b);
+      });
+    }
+  } catch (e) {
+    poruka('Nema veze sa tabelom. Proveri internet.', 'var(--crv)');
+    pokreniKameru();
+  } finally {
+    $('ekSken').classList.remove('ucitava');
+  }
+}
+
+function izaberi(a, bk) {
+  trenutni = { id: a.id, naziv: a.naziv, barkod: bk };
+  $('izbor').innerHTML = '';
+  pokazi('izabran', true);
+  $('nazivA').textContent = a.naziv;
+  $('idA').textContent = a.id;
+  $('bkA').textContent = bk;
+}
+
+function ocistiFormu() {
+  trenutni = null;
+  $('rok').value = '';
+  $('serija').value = '';
+  $('upozRok').className = 'upoz';
+  $('izbor').innerHTML = '';
+  sakrijInfo();
+}
+
+// ---------- slikanje roka ----------
+function slikaj() {
+  $('foto').value = '';
+  $('foto').click();
+}
+
+$('foto').addEventListener('change', async () => {
+  const f = $('foto').files[0];
+  if (!f) return;
+  prikaziInfo('⏳ Čitam rok sa slike...', 'info');
+  $('ekArtikal').classList.add('ucitava');
+  try {
+    const b64 = await smanji(f);
+    const o = await pozovi({ akcija: 'procitaj', slika: b64, tip: 'image/jpeg' });
+    if (!o.ok) { prikaziInfo(o.greska, 'crveno'); return; }
+    if (o.rok) { $('rok').value = o.rok; proveriRok(); }
+    if (o.serija) $('serija').value = o.serija;
+    if (!o.rok) prikaziInfo('Rok nije pročitan. Slikaj bliže ili ga ukucaj.', 'narand');
+    else prikaziInfo('Na kutiji: ' + (o.procitano || o.rok) + ' – proveri pre čuvanja.', 'info');
+  } catch (e) {
+    prikaziInfo('Greška pri slanju slike. Probaj ponovo.', 'crveno');
+  } finally {
+    $('ekArtikal').classList.remove('ucitava');
+  }
+});
+
+// Smanjuje sliku pre slanja (brže, manje podataka)
+function smanji(f) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const u = URL.createObjectURL(f);
+    img.onload = () => {
+      const max = 2000;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const k = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(u);
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = rej;
+    img.src = u;
   });
 }
 
-function pocetna() {
-  if (RED.lista.length && !confirmLako('Još se čuvaju stavke. Ipak izaći na početni ekran?')) return;
-  zaustaviKameru();
-  S.ekran = 'pocetna'; APP.aktivni = null;
-  postaviNaslov('Alfa lek · Roba', false);
-  let h = '<div class="pozdrav">Izaberite:</div>';
-  MODULI.forEach(function (m) {
-    const d = APP.dostupni.filter(function (x) { return x.m.id === m.id; })[0];
-    if (!d) return;
-    h += '<div class="ploca" onclick="otvoriModul(\'' + m.id + '\')"><div class="ik" style="background:' + m.boja + '">' + m.ikona + '</div>' +
-      '<div><div class="ime">' + esc(m.naziv) + '</div><div class="sitno">' + esc(m.opis) + '</div></div></div>';
+// ---------- rok ----------
+// Kucanje: 0328 -> 03/28 ... pri čuvanju 03/2028
+$('rok').addEventListener('input', () => {
+  const d = $('rok').value.replace(/\D/g, '').slice(0, 6);
+  $('rok').value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+  proveriRok();
+});
+
+function normRok(v, konacno) {
+  const d = String(v).replace(/\D/g, '');
+  let mm, g;
+  if (d.length === 4) {
+    if (d.slice(2) === '20' && !konacno) return null;   // verovatno se kuca 2028...
+    mm = d.slice(0, 2); g = '20' + d.slice(2);
+  } else if (d.length === 6) {
+    mm = d.slice(0, 2); g = d.slice(2);
+  } else return null;
+  return { tekst: mm + '/' + g, mm: +mm, g: +g };
+}
+
+function proveriRok(konacno) {
+  const u = $('upozRok');
+  const n = normRok($('rok').value, konacno);
+  if (!n) { u.className = 'upoz'; return null; }
+  if (n.mm < 1 || n.mm > 12) {
+    u.className = 'upoz crveno'; u.textContent = 'Mesec mora biti od 01 do 12.'; return null;
+  }
+  const sad = new Date();
+  const razlika = (n.g * 12 + n.mm) - (sad.getFullYear() * 12 + sad.getMonth() + 1);
+  n.istekao = razlika < 0;
+  if (razlika < 0) { u.className = 'upoz crveno'; u.textContent = '⛔ Rok je istekao!'; }
+  else if (razlika === 0) { u.className = 'upoz narand'; u.textContent = '⚠ Rok ističe ovog meseca.'; }
+  else if (razlika < 6) { u.className = 'upoz narand'; u.textContent = '⚠ Kratak rok – ističe za ' + razlika + ' mes.'; }
+  else u.className = 'upoz';
+  return n;
+}
+
+// ---------- čuvanje ----------
+async function sacuvaj() {
+  if (!trenutni) { poruka('Izaberi artikal.', 'var(--crv)'); return; }
+  const n = proveriRok(true);
+  if (!n) { poruka('Upiši ispravan rok (npr. 0328).', 'var(--crv)'); $('rok').focus(); return; }
+  if (n.istekao && !confirm('Rok je istekao. Da li ipak da sačuvam?')) return;
+
+  const podaci = {
+    akcija: 'upisi',
+    barkod: trenutni.barkod,
+    id: trenutni.id,
+    naziv: trenutni.naziv,
+    serija: $('serija').value.trim(),
+    rok: n.tekst,
+    apoteka: apoteka
+  };
+
+  $('ekArtikal').classList.add('ucitava');
+  try {
+    const o = await pozovi(podaci);
+    if (!o.ok) { poruka(o.greska, 'var(--crv)'); return; }
+    poruka('✔ Sačuvano');
+    unosi.unshift({ naziv: podaci.naziv, rok: podaci.rok, serija: podaci.serija,
+                    vreme: new Date().toLocaleTimeString('sr-RS', { hour: '2-digit', minute: '2-digit' }) });
+    prikaziListu();
+    nazad();
+  } catch (e) {
+    poruka('Nije sačuvano – nema veze. Probaj ponovo.', 'var(--crv)');
+  } finally {
+    $('ekArtikal').classList.remove('ucitava');
+  }
+}
+
+function prikaziListu() {
+  const ul = $('lista');
+  ul.innerHTML = '';
+  unosi.slice(0, 15).forEach(x => {
+    const li = document.createElement('li');
+    const b = document.createElement('b');
+    b.textContent = x.rok;
+    li.appendChild(b);
+    li.appendChild(document.createTextNode('  ' + x.naziv + (x.serija ? ' · ser. ' + x.serija : '') + ' · ' + x.vreme));
+    ul.appendChild(li);
   });
-  h += '<div class="verzija">Alfa lek · Roba ' + VERZIJA_APP + '</div>';
-  $('ekran').innerHTML = h;
-}
-
-function otvoriModul(id) {
-  const d = APP.dostupni.filter(function (x) { return x.m.id === id; })[0];
-  if (!d) return;
-  APP.aktivni = id;
-  d.m.otvori(d.r);
-}
-
-function osvezi() {
-  if (APP.aktivni === 'prijem') return prijemOsvezi();
-  if (APP.aktivni === 'pakovanje') return pakOsvezi();
-  start();
 }
 
 function nazad() {
-  if (APP.aktivni === 'prijem') return prijemNazad();
-  if (APP.aktivni === 'pakovanje') return pakNazad();
-  pocetna();
-}
-
-/* ================= ŠIFARNIK (zajednički, čuva se na telefonu) ================= */
-const SIF = { a: [], mapa: {}, komad: {}, ok: false };
-function ucitajSifarnik() {
-  try { const st = lsGet('sifarnik'); if (st) primeniSifarnik(JSON.parse(st)); } catch (e) {}
-  const izvor = APP.dostupni[0].m;   // šifarnik daje prva dostupna skripta (svi koriste isti)
-  return poziv(izvor.api, 'apiSifarnik', [lsGet('sifarnikVerzija') || '']).then(function (r) {
-    if (r && !r.isti) {
-      lsSet('sifarnik', JSON.stringify({ a: r.a, b: r.b }));
-      lsSet('sifarnikVerzija', r.verzija);
-      primeniSifarnik(r);
-    }
-  });
-}
-function bezNula(b) { return String(b).replace(/^0+/, ''); }
-function primeniSifarnik(r) {
-  SIF.a = r.a || []; SIF.mapa = {}; SIF.komad = {};
-  SIF.a.forEach(function (a) { if (a[2] === 1) SIF.komad[a[0]] = true; });
-  (r.b || []).forEach(function (x) { SIF.mapa[x[0]] = x[1]; const n = bezNula(x[0]); if (!(n in SIF.mapa)) SIF.mapa[n] = x[1]; });
-  SIF.ok = SIF.a.length > 0;
-}
-/** GS1 DataMatrix sa lekova: (01)GTIN14... -> EAN-13 */
-function ocistiKod(k) {
-  k = String(k || '').replace(/[\u001d\s]/g, '').replace(/^\]d2/, '').replace(/^\]C1/, '');
-  const m = k.match(/^\(?01\)?(\d{14})/);
-  if (m) return m[1].replace(/^0/, '');
-  return k;
-}
-function nadjiArtikal(kod) {
-  const k = ocistiKod(kod);
-  let i = SIF.mapa[k]; if (i === undefined) i = SIF.mapa[bezNula(k)];
-  if (i === undefined) return null;
-  const a = SIF.a[i]; return { id: a[0], naziv: a[1], komad: a[2] === 1, barkod: k };
-}
-function jeKomad(idArtikla) { return !!SIF.komad[idArtikla]; }
-
-/* ================= ČUVANJE U POZADINI =================
-   Stavka se odmah prikaže, a šalje se skripti jedna po jedna. Ako veza pukne, slanje se ponavlja
-   (do 3 puta); skripta prepoznaje ponovljenu stavku po ID-ju i ne upisuje je dvaput. */
-const RED = { lista: [], radi: false, cekaju: [] };
-function noviId() {
-  try { const b = new Uint8Array(6); crypto.getRandomValues(b); return Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); }
-  catch (e) { return (Date.now().toString(16) + Math.random().toString(16).slice(2)).slice(-12); }
-}
-/* z = {url, fn, args, naziv, kol, lokalna, ukloni()} */
-function uRed(z) { z.pokusaj = 0; RED.lista.push(z); osveziBrojac(); obradiRed(); }
-function obradiRed() {
-  if (RED.radi) return;
-  const z = RED.lista[0];
-  if (!z) { osveziBrojac(); const c = RED.cekaju; RED.cekaju = []; c.forEach(function (f) { f(); }); return; }
-  RED.radi = true; osveziBrojac();
-  poziv(z.url, z.fn, z.args).then(function () {
-    if (z.lokalna) z.lokalna.ceka = false; RED.lista.shift();
-  }).catch(function (e) {
-    z.pokusaj++;
-    if (z.pokusaj < 3) return new Promise(function (r) { setTimeout(r, 2000); });   // pokušaj ponovo za 2 s
-    RED.lista.shift();
-    if (z.ukloni) z.ukloni();
-    zvuk(false);
-    poruka('NIJE sačuvano: ' + z.naziv + ' × ' + z.kol + ' (' + e.message + '). Unesite ponovo.', '#c62828');
-    if (z.posleGreske) z.posleGreske();
-  }).then(function () { RED.radi = false; obradiRed(); });
-}
-function sacekajRed() {
-  return new Promise(function (res) { if (!RED.lista.length && !RED.radi) res(); else RED.cekaju.push(res); });
-}
-function osveziBrojac() {
-  const n = RED.lista.length, el = $('redStatus');
-  if (el) el.textContent = n ? '⏳ čuva se još ' + n + '...' : '';
-  osveziPoslednje();
-}
-function posleCuvanja(f) {
-  if (!RED.lista.length && !RED.radi) return f();
-  cekaj('Čuvam preostale stavke...');
-  sacekajRed().then(function () { gotovo(); f(); });
-}
-window.addEventListener('beforeunload', function (e) {
-  if (RED.lista.length) { e.preventDefault(); e.returnValue = 'Još se čuvaju stavke.'; return e.returnValue; }
-});
-
-/* ================= SKENIRANJE (zajedničko) =================
-   Izvori koda: kamera uživo, slikanje barkoda, kucanje, bar kod čitač (tastatura: brzi niz znakova + Enter).
-   Režim: 'brzo' (svako skeniranje = 1 kom odmah; artikal na komad ipak otvara karticu) ili 'kartica'. */
-const SKEN = {
-  rezim: lsGet('rezim') === 'brzo' ? 'brzo' : 'kartica',
-  kamera: lsGet('kamera') !== 'ne',
-  ekrani: ['skener', 'rucno', 'prijem', 'pakuj', 'p_dodaj'],     // ekrani na kojima čitač radi
-  primi: null                                // funkcija modula: primi(kod, namerno)
-};
-function postaviRezim(r) { SKEN.rezim = r; lsSet('rezim', r); const a = $('rzB'), b = $('rzK'); if (a) { a.classList.toggle('akt', r === 'brzo'); b.classList.toggle('akt', r !== 'brzo'); } }
-function prekidacHtml() {
-  return '<div class="prekidac"><button id="rzB" class="' + (SKEN.rezim === 'brzo' ? 'akt' : '') + '" onclick="postaviRezim(\'brzo\')">⚡ Brzo (1 kom)</button>' +
-    '<button id="rzK" class="' + (SKEN.rezim !== 'brzo' ? 'akt' : '') + '" onclick="postaviRezim(\'kartica\')">🗂️ Sa karticom</button></div>';
-}
-
-/* --- bar kod čitač: hvata brzi niz znakova koji se završava Enterom, bez obzira gde je kursor --- */
-const CIT = { buf: '', t0: 0, tz: 0, polja: [] };   // polja = [[polje, vrednost pre niza], ...]
-document.addEventListener('keydown', function (e) {
-  if (SKEN.ekrani.indexOf(S.ekran) < 0) return;
-  const sad = Date.now();
-  if (e.key === 'Enter') {
-    const n = CIT.buf.length;
-    const citac = n >= 6 && (CIT.tz - CIT.t0) / Math.max(1, n - 1) < 45 && sad - CIT.tz < 200;
-    const kod = CIT.buf; CIT.buf = '';
-    if (citac) {
-      e.preventDefault();
-      // znakove koje je čitač ukucao u neko polje (npr. količinu) vrati na staro
-      CIT.polja.forEach(function (x) { if (x[0].id !== 'rucniKod') x[0].value = x[1]; });
-      CIT.polja = [];
-      if ($('rucniKod')) $('rucniKod').value = '';
-      if (SKEN.primi) SKEN.primi(kod, true);
-      return;
-    }
-    // običan Enter: potvrdi otvorenu karticu, ili kucani barkod
-    if ($('dugSacuvaj') && !$('dugSacuvaj').disabled) { e.preventDefault(); $('dugSacuvaj').click(); return; }
-    if (document.activeElement && document.activeElement.id === 'rucniKod') { e.preventDefault(); $('dugOK').click(); }
-    return;
-  }
-  if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
-  if (!CIT.buf || sad - CIT.tz > 80) { CIT.buf = ''; CIT.t0 = sad; CIT.polja = []; }
-  // zapamti vrednost svakog polja u koje niz upada (kursor može da pređe u polje usred niza)
-  const el = document.activeElement;
-  if (el && typeof el.value === 'string' && !CIT.polja.some(function (x) { return x[0] === el; })) CIT.polja.push([el, el.value]);
-  CIT.buf += e.key; CIT.tz = sad;
-});
-
-/* --- kamera --- */
-const CAM = { stream: null, detektor: null, zxing: null, radi: false, pauza: false, tajmer: null, zadnji: '', vidjen: 0 };
-
-function formatiPodrzani() {
-  const zeljeni = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'data_matrix', 'qr_code'];
-  if (!window.BarcodeDetector || !BarcodeDetector.getSupportedFormats) return Promise.resolve(zeljeni);
-  return BarcodeDetector.getSupportedFormats().then(function (f) { return zeljeni.filter(function (z) { return f.indexOf(z) >= 0; }); });
-}
-
-/* deo ekrana za skeniranje: prekidač, kamera, status, kucanje */
-function skenerDeo(bezPrekidaca) {
-  return (bezPrekidaca ? '' : prekidacHtml()) +
-    '<div id="kamDeo" class="okvir' + (SKEN.kamera ? '' : ' skriveno') + '"><video id="video" playsinline muted></video><div class="nisan"></div></div>' +
-    '<div class="alatke"><div id="kamStatus" class="sitno"></div><button class="link" onclick="prebaciKameru()">' + (SKEN.kamera ? 'Isključi kameru' : 'Uključi kameru') + '</button></div>' +
-    '<div id="nadjeno"></div>';
-}
-function pokreniSkener() {
-  if (!SKEN.kamera) {
-    $('kamStatus').textContent = jeRacunar() ? 'Skenirajte bar kod čitačem ili ukucajte barkod.' : 'Kamera je isključena.';
-    return;
-  }
-  $('kamStatus').textContent = SIF.ok ? 'Uključujem kameru...' : 'Šifarnik se još učitava, sačekajte trenutak...';
+  ocistiFormu();
+  pokazi('ekArtikal', false);
+  pokazi('ekSken', true);
+  $('barkodRucno').value = '';
   pokreniKameru();
 }
-function prebaciKameru() {
-  SKEN.kamera = !SKEN.kamera; lsSet('kamera', SKEN.kamera ? 'da' : 'ne');
-  zaustaviKameru();
-  if (S.ekran === 'skener') skener();
-  else if (S.ekran === 'pakuj') pakujKartica(P.trenutna);
-  else if (S.ekran === 'p_dodaj') pDodaj();
-}
 
-function pokreniKameru() {
-  CAM.pauza = false;
-  const ekran = S.ekran;
-  if (window.BarcodeDetector) {
-    formatiPodrzani().then(function (formati) {
-      CAM.detektor = new BarcodeDetector({ formats: formati });
-      return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false });
-    }).then(function (stream) {
-      CAM.stream = stream; const v = $('video'); if (!v || S.ekran !== ekran) return zaustaviKameru();
-      v.srcObject = stream; return v.play();
-    }).then(function () {
-      if (S.ekran !== ekran || !CAM.stream) return;
-      CAM.radi = true; if ($('kamStatus')) $('kamStatus').textContent = 'Usmerite kameru na barkod.';
-      petljaDetekcije(ekran);
-    }).catch(kameraNeRadi);
-  } else {
-    ucitajZxing().then(function () {
-      CAM.zxing = new ZXing.BrowserMultiFormatReader();
-      return CAM.zxing.decodeFromConstraints({ video: { facingMode: 'environment' } }, 'video', function (rez) {
-        if (rez) kameraKod(rez.getText());
-      });
-    }).then(function () {
-      CAM.radi = true; if ($('kamStatus')) $('kamStatus').textContent = 'Usmerite kameru na barkod.';
-    }).catch(kameraNeRadi);
-  }
-}
+// ---------- start ----------
+$('barkodRucno').addEventListener('keydown', e => { if (e.key === 'Enter') traziRucno(); });
 
-function kameraNeRadi(e) {
-  zaustaviKameru();
-  if ($('kamDeo')) $('kamDeo').classList.add('skriveno');
-  const odbijeno = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
-  if ($('kamStatus')) $('kamStatus').innerHTML =
-    odbijeno ? 'Kamera nije dozvoljena (katanac levo od adrese → Dozvole → Kamera). Možete slikati, ukucati ili skenirati čitačem.'
-             : 'Kamera nije dostupna. Skenirajte bar kod čitačem, slikajte ili ukucajte barkod.';
-}
-
-function petljaDetekcije(ekran) {
-  if (!CAM.radi || S.ekran !== ekran) return;
-  const v = $('video');
-  if (v && v.readyState >= 2) {
-    CAM.detektor.detect(v).then(function (k) {
-      if (k && k.length) kameraKod(k[0].rawValue);
-    }).catch(function () {}).then(function () { CAM.tajmer = setTimeout(function () { petljaDetekcije(ekran); }, 180); });
-  } else {
-    CAM.tajmer = setTimeout(function () { petljaDetekcije(ekran); }, 250);
-  }
-}
-
-/* Ista kutija ispred kamere se ne čita ponovo dok se ne skloni iz kadra (bar 1,2 s). */
-function kameraKod(kod) {
-  const sad = Date.now();
-  if (kod === CAM.zadnji) {
-    const proslo = sad - CAM.vidjen; CAM.vidjen = sad;
-    if (proslo < 1200) return;
-  }
-  if (CAM.pauza) return;
-  CAM.zadnji = kod; CAM.vidjen = sad;
-  if (SKEN.primi) SKEN.primi(kod, false);
-}
-
-function zaustaviKameru() {
-  CAM.radi = false; clearTimeout(CAM.tajmer);
-  try { if (CAM.zxing) CAM.zxing.reset(); } catch (e) {}
-  CAM.zxing = null;
-  if (CAM.stream) { CAM.stream.getTracks().forEach(function (t) { t.stop(); }); CAM.stream = null; }
-}
-
-function ucitajZxing() {
-  if (window.ZXing) return Promise.resolve();
-  return new Promise(function (res, rej) {
-    const s = document.createElement('script');
-    s.src = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js';
-    s.onload = res; s.onerror = function () { rej(new Error('Biblioteka za skeniranje nije učitana.')); };
-    document.head.appendChild(s);
-  });
-}
-
-/* fotografija barkoda */
-$('foto').addEventListener('change', function () {
-  const f = this.files && this.files[0]; this.value = '';
-  if (!f) return;
-  cekaj('Čitam barkod sa slike...');
-  const url = URL.createObjectURL(f);
-  procitajSaSlike(url).then(function (kod) {
-    gotovo(); URL.revokeObjectURL(url);
-    if (kod) { if (SKEN.primi) SKEN.primi(kod, true); }
-    else { zvuk(false); poruka('Barkod nije pročitan. Slikajte bliže i oštrije.', '#c62828'); }
-  }).catch(function (e) { URL.revokeObjectURL(url); greska(e); });
+APOTEKE.forEach(a => {
+  const o = document.createElement('option');
+  o.value = a; o.textContent = a;
+  $('izborApoteke').appendChild(o);
 });
-function procitajSaSlike(url) {
-  if (window.BarcodeDetector) {
-    return formatiPodrzani().then(function (formati) {
-      const det = new BarcodeDetector({ formats: formati });
-      const img = new Image(); img.src = url;
-      return img.decode().then(function () { return det.detect(img); }).then(function (k) { return k && k.length ? k[0].rawValue : ''; });
-    });
-  }
-  return ucitajZxing().then(function () {
-    const r = new ZXing.BrowserMultiFormatReader();
-    return r.decodeFromImageUrl(url).then(function (x) { return x.getText(); }).catch(function () { return ''; });
-  });
-}
 
-/* =====================================================================
-   MODUL: PRIJEM ROBE  (skripta PrijemRobe 4.2)
-   ===================================================================== */
-const S = { apoteka: '', admin: false, apoteke: [], prijemi: [], filter: '', prijem: null, ekran: 'pocetna', izmenaBroja: false };
-const STATUSI = ['Skeniranje', 'Za proveru', 'Nema dokumenta', 'Ima grešaka', 'U redu'];
-function apiP(fn) { return poziv(modul('prijem').api, fn, Array.prototype.slice.call(arguments, 1)); }
-
-function prijemStart(r) {
-  S.apoteka = r.apoteka; S.admin = r.admin; S.apoteke = r.apoteke; S.prijemi = r.prijemi;
-  SKEN.primi = prijemKod;
-  lista();
+apoteka = citajApoteku();
+if (!apoteka) {
+  pokazi('ekApoteka', true);
+} else {
+  $('apotekaOzn').textContent = apoteka;
+  pokazi('ekSken', true);
+  pokreniKameru();
 }
-
-function prijemOsvezi() {
-  if (S.ekran === 'prijem' && S.prijem) { const id = S.prijem.prijem.id; return posleCuvanja(function () { otvoriPrijem(id); }); }
-  if (S.ekran === 'skener' || S.ekran === 'rucno' || S.ekran === 'stavka' || S.ekran === 'rezultat') return;
-  cekaj('Osvežavam...');
-  apiP('apiPrijemi').then(function (p) { S.prijemi = p; gotovo(); lista(); }).catch(greska);
-}
-
-function prijemNazad() {
-  zaustaviKameru();
-  if (S.ekran === 'rucno') return skener();
-  if (S.ekran === 'skener' || S.ekran === 'rezultat' || S.ekran === 'stavka') return prikaziPrijem();
-  if (S.ekran === 'lista') return pocetna();
-  lista();
-  prijemOsvezi();
-}
-
-/* ---------- lista prijema ---------- */
-function lista() {
-  zaustaviKameru();
-  S.ekran = 'lista'; S.prijem = null;
-  postaviNaslov('Prijem robe · ' + (S.admin ? 'sve apoteke' : S.apoteka), APP.dostupni.length > 1);
-  let h = '<button class="dugme zeleno" onclick="noviPrijem()">+ Novi prijem</button>';
-  if (S.admin) {
-    h += '<select class="filter" onchange="S.filter=this.value;lista()"><option value="">Sve apoteke</option>' +
-      S.apoteke.map(function (a) { return '<option' + (S.filter === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select>';
-  }
-  const pr = S.prijemi.filter(function (p) { return !S.filter || p.apoteka === S.filter; });
-  if (!pr.length) h += '<div class="info">Nema prijema. Kliknite „+ Novi prijem“.</div>';
-  STATUSI.forEach(function (st) {
-    const g = pr.filter(function (p) { return p.status === st; });
-    if (!g.length) return;
-    h += '<div class="grupa">' + esc(st) + ' (' + g.length + ')</div>';
-    g.forEach(function (p) {
-      h += '<div class="kartica klik" onclick="otvoriPrijem(\'' + esc(p.id) + '\')">' + cipStatusa(p.status) +
-        '<div class="naslov">' + esc(p.naslov) + '</div>' +
-        '<div class="sitno">' + esc(p.datum) + ' · ' + esc(p.zaposleni) + ' · ' + p.brStavki + ' stavki' +
-        (S.admin ? ' · <b>' + esc(p.apoteka) + '</b>' : '') + '</div></div>';
-    });
-  });
-  const ostali = pr.filter(function (p) { return STATUSI.indexOf(p.status) < 0; });
-  if (ostali.length) {
-    h += '<div class="grupa">Ostalo</div>';
-    ostali.forEach(function (p) {
-      h += '<div class="kartica klik" onclick="otvoriPrijem(\'' + esc(p.id) + '\')"><div class="naslov">' + esc(p.naslov) + '</div><div class="sitno">' + esc(p.status) + '</div></div>';
-    });
-  }
-  h += '<div class="verzija">Alfa lek · Roba ' + VERZIJA_APP + '</div>';
-  $('ekran').innerHTML = h;
-  window.scrollTo(0, 0);
-}
-
-/* ---------- novi prijem ---------- */
-function noviPrijem() {
-  S.ekran = 'novi';
-  postaviNaslov('Novi prijem', true);
-  let h = '<div class="kartica"><label>Vrsta prijema</label><div class="izbor">' +
-    '<button id="tF" class="akt" onclick="izaberiTip(\'Faktura\')">Faktura</button>' +
-    '<button id="tI" onclick="izaberiTip(\'Interni prenos\')">Interni prenos</button></div>' +
-    '<div id="poljeF"><label>Broj fakture</label><input id="brF" inputmode="text" autocomplete="off"></div>' +
-    '<label id="lblD">Broj kalkulacije (može i kasnije)</label><input id="brD" inputmode="numeric" autocomplete="off">';
-  if (S.admin) {
-    h += '<label>Apoteka</label><select id="apo"><option value="">— izaberite —</option>' +
-      S.apoteke.map(function (a) { return '<option>' + esc(a) + '</option>'; }).join('') + '</select>';
-  }
-  h += '<label>Vaše ime</label><input id="zap" value="' + esc(lsGet('zaposleni') || '') + '" autocomplete="off">' +
-    '<button class="dugme zeleno" onclick="sacuvajPrijem()">Sačuvaj i počni skeniranje</button></div>';
-  $('ekran').innerHTML = h;
-  S.tip = 'Faktura';
-  setTimeout(function () { $('brF').focus(); }, 100);
-}
-function izaberiTip(t) {
-  S.tip = t;
-  $('tF').classList.toggle('akt', t === 'Faktura'); $('tI').classList.toggle('akt', t !== 'Faktura');
-  $('poljeF').classList.toggle('skriveno', t !== 'Faktura');
-  $('lblD').textContent = t === 'Faktura' ? 'Broj kalkulacije (može i kasnije)' : 'Broj internog prenosa';
-}
-function sacuvajPrijem() {
-  const d = { tip: S.tip, brojFakture: $('brF').value, brojDokumenta: $('brD').value, zaposleni: $('zap').value, apoteka: S.admin ? $('apo').value : '' };
-  if (d.tip === 'Faktura' && !d.brojFakture.trim()) return poruka('Upišite broj fakture.', '#c62828');
-  if (!d.zaposleni.trim()) return poruka('Upišite svoje ime.', '#c62828');
-  if (S.admin && !d.apoteka) return poruka('Izaberite apoteku.', '#c62828');
-  lsSet('zaposleni', d.zaposleni.trim());
-  cekaj('Čuvam prijem...');
-  apiP('apiNoviPrijem', d).then(function (id) {
-    return apiP('apiPrijem', id);
-  }).then(function (det) {
-    gotovo(); S.prijem = det; S.prijemi.unshift(Object.assign({ brStavki: 0 }, det.prijem));
-    poruka('Prijem je sačuvan.'); skener();
-  }).catch(greska);
-}
-
-/* ---------- prijem ---------- */
-function otvoriPrijem(id) {
-  cekaj('Otvaram prijem...');
-  apiP('apiPrijem', id).then(function (det) { gotovo(); S.prijem = det; S.izmenaBroja = false; prikaziPrijem(); }).catch(greska);
-}
-
-function zbirStavki() {
-  const z = {}, red = [];
-  S.prijem.stavke.forEach(function (s) {
-    if (!z[s.idArtikla]) { z[s.idArtikla] = { idArtikla: s.idArtikla, naziv: s.naziv, kol: 0, stavke: [] }; red.push(z[s.idArtikla]); }
-    z[s.idArtikla].kol += s.kol; z[s.idArtikla].stavke.push(s);
-  });
-  return red;
-}
-
-function prikaziPrijem() {
-  zaustaviKameru();
-  S.ekran = 'prijem';
-  const p = S.prijem.prijem;
-  postaviNaslov(p.naslov, true);
-  const zbir = zbirStavki();
-  const ukupno = S.prijem.stavke.reduce(function (a, s) { return a + s.kol; }, 0);
-  const napZap = p.napomena.split('\n').filter(function (l) { return l.indexOf('⚙️') !== 0; }).join('\n');
-  const napProg = p.napomena.split('\n').filter(function (l) { return l.indexOf('⚙️') === 0; }).join(' ');
-  const imeBroja = p.tip === 'Faktura' ? 'Broj kalkulacije' : 'Broj internog prenosa';
-
-  let h = '<div class="dokument">' + cipStatusa(p.status) +
-    '<div class="oznaka">📄 ' + (p.tip === 'Faktura' ? 'Faktura' : 'Interni prenos') + '</div>' +
-    '<div class="naslov">' + esc(p.naslov) + '</div>' +
-    '<div class="sitno">' + esc(p.datum) + ' · ' + esc(p.zaposleni) + (S.admin ? ' · <b>' + esc(p.apoteka) + '</b>' : '') + '</div>' +
-    (napProg ? '<div class="info">' + esc(napProg) + '</div>' : '');
-  if (p.brojDokumenta && !S.izmenaBroja) {
-    h += '<div class="dokRed"><div><div class="lbl">' + imeBroja + '</div><div class="vr">' + esc(p.brojDokumenta) + '</div></div>' +
-      '<button class="dugme obrub malo" onclick="S.izmenaBroja=true;prikaziPrijem()">✏️ Izmeni</button></div>';
-  } else {
-    h += '<label>' + imeBroja + ' (iz programa, za proveru)</label>' +
-      '<div class="red2"><input id="brD" value="' + esc(p.brojDokumenta) + '" inputmode="numeric" autocomplete="off" placeholder="npr. 050592">' +
-      '<button class="dugme obrub" style="flex:0 0 110px;margin:0" onclick="sacuvajBroj()">Sačuvaj</button></div>';
-  }
-  h += '<div class="razmak"></div>' +
-    '<button class="dugme zeleno" onclick="proveri()" ' + (S.prijem.stavke.length ? '' : 'disabled') + '>✅ Proveri</button>';
-  if (S.prijem.rezultati.length) h += '<button class="dugme obrub" style="margin-bottom:0" onclick="prikaziRezultate()">📋 Rezultati poslednje provere</button>';
-  h += '</div>';
-
-  h += '<div class="deo">Unos robe</div>' +
-    '<div class="red2"><button class="dugme njezno" onclick="skener()">📷 Skeniraj</button>' +
-    '<button class="dugme njezno" onclick="rucno()">🔍 Ručno</button></div>' +
-    (jeRacunar() ? '<div class="sitno">Bar kod čitač radi i na ovom ekranu – samo skenirajte.</div>' : '');
-
-  h += '<div class="grupa">Skenirano: ' + zbir.length + ' artikala, ' + ukupno + ' kom</div>';
-  if (!zbir.length) h += '<div class="info">Još ništa nije skenirano.</div>';
-  zbir.forEach(function (z) {
-    const komad = jeKomad(z.idArtikla);
-    h += '<div class="kartica klik" onclick="izmeniArtikal(\'' + esc(z.idArtikla) + '\')"><div class="stavka"><div><div class="naslov' + (komad ? ' komad' : '') + '">' +
-      esc(z.naziv) + '</div>' + (komad ? '<div class="sitno komad">⚠️ NA KOMAD</div>' : '') +
-      (z.stavke.length > 1 ? '<div class="sitno">skenirano ' + z.stavke.length + ' puta</div>' : '') +
-      '</div><div class="k">' + z.kol + '</div></div></div>';
-  });
-  h += '<div id="redStatus" class="ceka"></div>';
-  h += '<label>Napomena</label><textarea id="nap" rows="2">' + esc(napZap) + '</textarea>' +
-    '<button class="dugme obrub" onclick="sacuvajNapomenu()">Sačuvaj napomenu</button>' +
-    '<div style="height:18px"></div><button class="dugme obrub-crv" onclick="obrisiPrijem()">🗑️ Obriši ovaj prijem</button>';
-  $('ekran').innerHTML = h;
-  osveziBrojac();
-}
-
-function sacuvajBroj() {
-  cekaj('Čuvam...');
-  apiP('apiIzmeniPrijem', S.prijem.prijem.id, { brojDokumenta: $('brD').value }).then(function (det) {
-    gotovo(); S.prijem = det; S.izmenaBroja = false; prikaziPrijem(); poruka('Broj je sačuvan.');
-  }).catch(greska);
-}
-function sacuvajNapomenu() {
-  cekaj('Čuvam...');
-  apiP('apiIzmeniPrijem', S.prijem.prijem.id, { napomena: $('nap').value }).then(function (det) {
-    gotovo(); S.prijem = det; prikaziPrijem(); poruka('Napomena je sačuvana.');
-  }).catch(greska);
-}
-
-function obrisiPrijem() {
-  const p = S.prijem.prijem;
-  if (!confirmLako('Obrisati prijem „' + p.naslov + '“ sa svih ' + S.prijem.stavke.length + ' skeniranih stavki?\n\nOvo se ne može vratiti.')) return;
-  posleCuvanja(function () {
-    cekaj('Brišem prijem...');
-    apiP('apiObrisiPrijem', p.id).then(function () {
-      gotovo();
-      S.prijemi = S.prijemi.filter(function (x) { return x.id !== p.id; });
-      poruka('Prijem je obrisan.'); lista();
-    }).catch(greska);
-  });
-}
-
-/* izmena količine / brisanje stavki jednog artikla */
-function izmeniArtikal(idArtikla) {
-  if (RED.lista.length || RED.radi) return posleCuvanja(function () { izmeniArtikal(idArtikla); });
-  S.ekran = 'stavka';
-  const z = zbirStavki().filter(function (x) { return x.idArtikla === idArtikla; })[0];
-  if (!z) return prikaziPrijem();
-  postaviNaslov('Izmena', true);
-  let h = '<div class="kartica"><div class="naslov">' + esc(z.naziv) + '</div><div class="sitno">Ukupno: ' + z.kol + '</div></div>';
-  z.stavke.forEach(function (s) {
-    h += '<div class="kartica"><div class="sitno">' + esc(s.vreme) + (s.barkod ? ' · ' + esc(s.barkod) : ' · ručno') + '</div>' +
-      '<div class="kol"><button onclick="pomeri(\'k_' + s.id + '\',-1)">−</button><input id="k_' + s.id + '" type="number" inputmode="decimal" value="' + s.kol + '">' +
-      '<button onclick="pomeri(\'k_' + s.id + '\',1)">+</button></div>' +
-      '<div class="red2"><button class="dugme zeleno" onclick="sacuvajKolicinu(\'' + s.id + '\')">Sačuvaj</button>' +
-      '<button class="dugme obrub-crv" onclick="obrisiStavku(\'' + s.id + '\')">Obriši</button></div></div>';
-  });
-  h += '<button class="dugme obrub" onclick="prikaziPrijem()">Nazad na prijem</button>';
-  $('ekran').innerHTML = h;
-}
-function pomeri(id, d) { const i = $(id); const v = Math.max(1, (parseFloat(i.value) || 0) + d); i.value = v; }
-function sacuvajKolicinu(id) {
-  const kol = parseFloat($('k_' + id).value);
-  if (!(kol > 0)) return poruka('Količina mora biti veća od nule.', '#c62828');
-  cekaj('Čuvam...');
-  apiP('apiIzmeniStavku', id, kol).then(function () { return apiP('apiPrijem', S.prijem.prijem.id); })
-    .then(function (det) { gotovo(); S.prijem = det; prikaziPrijem(); poruka('Količina je sačuvana.'); }).catch(greska);
-}
-function obrisiStavku(id) {
-  if (!confirmLako('Obrisati ovu stavku?')) return;
-  cekaj('Brišem...');
-  apiP('apiObrisiStavku', id).then(function () { return apiP('apiPrijem', S.prijem.prijem.id); })
-    .then(function (det) { gotovo(); S.prijem = det; prikaziPrijem(); poruka('Stavka je obrisana.'); }).catch(greska);
-}
-
-/* ---------- skeniranje u prijemu ---------- */
-function skener() {
-  S.ekran = 'skener';
-  postaviNaslov('Skeniranje', true);
-  const p = S.prijem.prijem;
-  $('ekran').innerHTML =
-    '<div class="sitno" style="margin-bottom:6px">' + esc(p.naslov) + ' · skenirano <b id="brSken">' + S.prijem.stavke.length + '</b> <span id="redStatus" class="ceka"></span></div>' +
-    skenerDeo() +
-    '<div class="red2"><button class="dugme njezno" onclick="$(\'foto\').click()">📸 Slikaj barkod</button>' +
-    '<button class="dugme njezno" onclick="rucno()">🔍 Ručno</button></div>' +
-    '<label>Ili ukucajte barkod</label><div class="red2"><input id="rucniKod" inputmode="numeric" autocomplete="off">' +
-    '<button id="dugOK" class="dugme plavo" style="flex:0 0 90px;margin:0" onclick="prijemKod($(\'rucniKod\').value, true)">OK</button></div>' +
-    '<div id="poslednje"></div>' +
-    '<button class="dugme obrub" onclick="prikaziPrijem()">Gotovo – nazad na prijem</button>';
-  osveziBrojac();
-  pokreniSkener();
-}
-
-/* poslednjih 5 unetih stavki (vidi se odmah šta je upisano, posebno u brzom režimu) */
-function osveziPoslednje() {
-  if ($('brSken') && S.prijem) $('brSken').textContent = S.prijem.stavke.length;
-  const el = $('poslednje');
-  if (!el || !S.prijem) return;
-  const st = S.prijem.stavke.slice(0, 5);
-  el.innerHTML = st.length ? '<div class="poslednje"><div class="sitno" style="margin:2px 0 4px">Poslednje uneto:</div>' + st.map(function (s) {
-    return '<div class="r"><span>' + esc(s.naziv) + (s.ceka ? ' <span class="ceka">⏳</span>' : '') + '</span><b>' + s.kol + '</b></div>';
-  }).join('') + '</div>' : '';
-}
-
-/* kod iz bilo kog izvora (kamera, slika, kucanje, čitač) */
-function prijemKod(kod, namerno) {
-  kod = String(kod || '').trim();
-  if (!kod) return;
-  if (!S.prijem) return;
-  if (S.ekran !== 'skener') skener();          // čitač na ekranu prijema ili ručnog izbora -> ekran skeniranja
-  if (!SIF.ok) return poruka('Šifarnik se još učitava, pokušajte za trenutak.', '#fb8c00');
-  if ($('rucniKod')) $('rucniKod').value = '';
-  // čitačem skeniran novi artikal dok je kartica prethodnog otvorena: prethodni se sačuva sa upisanom količinom
-  if (namerno && $('dugSacuvaj') && S.izabran) {
-    const kolPre = parseFloat($('kolicina').value);
-    if (kolPre > 0) { sacuvajArtikal(S.izabran, kolPre); poruka('✓ ' + S.izabran.naziv + ' × ' + kolPre); }
-    S.izabran = null;
-  }
-  const a = nadjiArtikal(kod);
-  if (!a) {
-    CAM.pauza = true;
-    zvuk(false);
-    $('nadjeno').innerHTML = '<div class="upoz">Barkod ' + esc(ocistiKod(kod)) + ' nije u šifarniku.</div>' +
-      '<div class="red2"><button class="dugme njezno" onclick="rucno(\'' + esc(ocistiKod(kod)) + '\')">🔍 Izaberi ručno</button>' +
-      '<button class="dugme obrub" onclick="nastavi()">Skeniraj ponovo</button></div>';
-    return;
-  }
-  if (SKEN.rezim === 'brzo' && !a.komad) {
-    // brzi režim: odmah 1 kom
-    CAM.pauza = false;
-    zvuk(true);
-    sacuvajArtikal(a, 1);
-    $('nadjeno').innerHTML = '<div class="ok">✓ ' + esc(a.naziv) + ' · +1</div>';
-    return;
-  }
-  CAM.pauza = true;
-  zvuk(true);
-  karticaArtikla(a, 'nadjeno');
-  if (SKEN.rezim === 'brzo' && a.komad) poruka('Artikal na komad – upišite broj komada.', '#c62828');
-}
-
-function karticaArtikla(a, gde) {
-  S.izabran = a;
-  const vecIma = S.prijem.stavke.filter(function (s) { return s.idArtikla === a.id; }).reduce(function (x, s) { return x + s.kol; }, 0);
-  $(gde).innerHTML = '<div class="kartica" style="border:3px solid ' + (a.komad ? '#c62828' : '#8a6fc4') + '">' +
-    '<div class="naslov' + (a.komad ? ' komad' : '') + '">' + esc(a.naziv) + '</div>' +
-    (a.komad ? '<div class="upoz">⚠️ ARTIKAL NA KOMAD! Upišite broj KOMADA (kesica, ampula), ne kutija.</div>' : '') +
-    (vecIma ? '<div class="sitno">Već skenirano u ovom prijemu: ' + vecIma + '</div>' : '') +
-    '<div class="kol"><button onclick="pomeri(\'kolicina\',-1)">−</button><input id="kolicina" type="number" inputmode="decimal" value="1">' +
-    '<button onclick="pomeri(\'kolicina\',1)">+</button></div>' +
-    '<div class="red2"><button class="dugme zeleno" id="dugSacuvaj" onclick="sacuvajStavku()">Sačuvaj' + (jeRacunar() ? ' (Enter)' : '') + '</button>' +
-    '<button class="dugme obrub" onclick="otkazi()">Otkaži</button></div></div>';
-  if (a.komad || jeRacunar()) setTimeout(function () { const i = $('kolicina'); if (i) { i.focus(); i.select(); } }, 60);
-}
-
-function otkazi() {
-  if (!confirmLako('Otkazati unos ovog artikla? Neće biti sačuvan.')) return;
-  nastavi();
-}
-
-function nastavi() {
-  S.izabran = null;
-  if ($('nadjeno')) $('nadjeno').innerHTML = '';
-  if ($('rucniKod')) $('rucniKod').value = '';
-  if (S.ekran === 'skener') { CAM.pauza = false; if (SKEN.kamera && !CAM.radi && $('kamDeo') && !$('kamDeo').classList.contains('skriveno')) pokreniKameru(); }
-  else if (S.ekran === 'rucno') { const p = $('pretraga'); if (p) { p.value = ''; p.focus(); } $('rezPretrage').innerHTML = ''; }
-}
-
-/* upis stavke: odmah u spisak, slanje skripti u pozadini */
-function sacuvajArtikal(a, kol) {
-  const st = { id: noviId(), barkod: a.barkod || '', idArtikla: a.id, naziv: a.naziv, kol: kol };
-  const lokalna = { id: st.id, barkod: st.barkod, idArtikla: st.idArtikla, naziv: st.naziv, kol: kol, vreme: 'sada', ms: Date.now(), ceka: true };
-  const prijem = S.prijem;
-  prijem.stavke.unshift(lokalna);
-  uRed({
-    url: modul('prijem').api, fn: 'apiDodajStavku', args: [prijem.prijem.id, st], naziv: a.naziv, kol: kol, lokalna: lokalna,
-    ukloni: function () { const i = prijem.stavke.indexOf(lokalna); if (i >= 0) prijem.stavke.splice(i, 1); osveziPoslednje(); },
-    posleGreske: function () { if (S.ekran === 'prijem') prikaziPrijem(); }
-  });
-}
-
-function sacuvajStavku() {
-  const a = S.izabran; const kol = parseFloat($('kolicina').value);
-  if (!(kol > 0)) return poruka('Količina mora biti veća od nule.', '#c62828');
-  sacuvajArtikal(a, kol);
-  poruka('✓ ' + a.naziv + ' × ' + kol);
-  // posle ručnog izbora: nazad na ekran za skeniranje; posle skeniranja: nastavlja se skeniranje
-  if (S.ekran === 'rucno') skener(); else nastavi();
-}
-
-/* ---------- ručni izbor ---------- */
-function rucno(pocetno) {
-  zaustaviKameru();
-  S.ekran = 'rucno';
-  postaviNaslov('Ručni izbor artikla', true);
-  $('ekran').innerHTML =
-    (pocetno ? '<div class="info">Barkod ' + esc(pocetno) + ' nije u šifarniku – izaberite artikal po nazivu.</div>' : '') +
-    '<input id="pretraga" placeholder="Upišite deo naziva (najmanje 3 slova)" autocomplete="off">' +
-    '<div id="nadjeno"></div><div id="rezPretrage"></div>' +
-    '<button class="dugme obrub" onclick="skener()">Nazad na skeniranje</button>';
-  $('pretraga').addEventListener('input', pretrazi);
-  setTimeout(function () { $('pretraga').focus(); }, 100);
-}
-
-function pretrazi() {
-  const q = $('pretraga').value.trim().toLowerCase();
-  if (q.length < 3) { $('rezPretrage').innerHTML = ''; return; }
-  const delovi = q.split(/\s+/);
-  const rez = [];
-  for (let i = 0; i < SIF.a.length && rez.length < 40; i++) {
-    const n = SIF.a[i][1].toLowerCase();
-    if (delovi.every(function (d) { return n.indexOf(d) >= 0; })) rez.push(i);
-  }
-  $('rezPretrage').innerHTML = rez.length ? rez.map(function (i) {
-    const a = SIF.a[i];
-    return '<div class="kartica klik" onclick="izaberiRucno(' + i + ')"><div class="naslov' + (a[2] ? ' komad' : '') + '">' + esc(a[1]) +
-      '</div><div class="sitno">ID ' + esc(a[0]) + (a[2] ? ' · <span class="komad">⚠️ na komad</span>' : '') + '</div></div>';
-  }).join('') : '<div class="info">Nema artikla sa tim nazivom.</div>';
-}
-
-function izaberiRucno(i) {
-  const a = SIF.a[i];
-  $('rezPretrage').innerHTML = '';
-  karticaArtikla({ id: a[0], naziv: a[1], komad: a[2] === 1, barkod: '' }, 'nadjeno');
-  window.scrollTo(0, 0);
-}
-
-/* ---------- provera i rezultati ---------- */
-function proveri() {
-  const p = S.prijem.prijem;
-  if (!p.brojDokumenta) return poruka('Prvo upišite broj ' + (p.tip === 'Faktura' ? 'kalkulacije' : 'internog prenosa') + ' i kliknite Sačuvaj.', '#fb8c00');
-  posleCuvanja(function () { proveriSada(p); });
-}
-function proveriSada(p) {
-  cekaj('Proveravam... (do pola minuta)');
-  apiP('apiProveri', p.id).then(function (r) {
-    gotovo(); S.prijem = r.detalji;
-    const i = S.prijemi.findIndex(function (x) { return x.id === p.id; });
-    if (i >= 0) S.prijemi[i].status = r.status;
-    prikaziRezultate();
-  }).catch(greska);
-}
-
-/* [oznaka, pozadina, boja teksta, naziv u legendi] */
-const VRSTE = [
-  ['MANJAK', '#ffcdd2', '#b71c1c', '🔴 Manjak'], ['VISAK', '#ffe0b2', '#e65100', '🟠 Višak'],
-  ['NEMA_POS', '#e1bee7', '#4a148c', '🟣 Nema u pošiljci'], ['NEMA_DOK', '#bbdefb', '#0d47a1', '🔵 Nema u dokumentu'],
-  ['KOMAD_OK', '#fff9c4', '#827717', '⚠️ Na komad'], ['OK', '#e8f5e9', '#1b5e20', '✅ Slaže se']
-];
-function vrstaRez(st) {
-  if (st.indexOf('Manjak') >= 0) return VRSTE[0]; if (st.indexOf('Višak') >= 0) return VRSTE[1];
-  if (st.indexOf('pošiljci') >= 0) return VRSTE[2]; if (st.indexOf('dokumentu') >= 0) return VRSTE[3];
-  if (st.indexOf('⚠️') === 0) return VRSTE[4]; return VRSTE[5];
-}
-
-function prikaziRezultate() {
-  zaustaviKameru();
-  S.ekran = 'rezultat';
-  const p = S.prijem.prijem;
-  postaviNaslov('Rezultat provere', true);
-  const boja = p.status === 'U redu' ? '#2e7d32' : p.status === 'Ima grešaka' ? '#c62828' : '#e65100';
-  const ikona = p.status === 'U redu' ? '✅ ' : p.status === 'Ima grešaka' ? '❗ ' : '⚠️ ';
-  const prog = p.napomena.split('\n').filter(function (l) { return l.indexOf('⚙️') === 0; }).join(' ').replace(/^⚙️\s*/, '');
-  let h = '<div class="dokument"><div class="naslov" style="color:' + boja + ';font-size:20px">' + ikona + esc(p.status) + '</div>' +
-    '<div class="sitno">' + esc(p.naslov) + (p.vremeProvere ? ' · ' + esc(p.vremeProvere) : '') + '</div>' +
-    (prog ? '<div style="margin-top:8px">' + esc(prog) + '</div>' : '') +
-    (p.status === 'Nema dokumenta' ? '<div class="info">Izvezite dokument u folder Dokumenti, proverite broj u prijemu i ponovo kliknite ✅ Proveri.</div>' : '') +
-    '</div>';
-  const rez = S.prijem.rezultati;
-  if (rez.length) {
-    const brojac = {};
-    rez.forEach(function (r) { const v = vrstaRez(r.status)[0]; brojac[v] = (brojac[v] || 0) + 1; });
-    h += '<div class="legenda">' + VRSTE.map(function (v) {
-      return brojac[v[0]] ? '<span style="background:' + v[1] + ';color:' + v[2] + '">' + esc(v[3]) + ': ' + brojac[v[0]] + '</span>' : '';
-    }).join('') + '</div>';
-    rez.forEach(function (r) {
-      const v = vrstaRez(r.status);
-      h += '<div class="kartica" style="background:' + v[1] + '"><div class="naslov" style="color:' + v[2] + '">' + esc(r.naziv) + '</div>' +
-        '<div style="font-weight:bold;color:' + v[2] + '">' + esc(r.status) + '</div>' +
-        '<div class="sitno" style="color:#333">Na dokumentu: <b>' + r.d + '</b> · Skenirano: <b>' + r.s + '</b> · Razlika: <b>' + (r.razlika > 0 ? '+' : '') + r.razlika + '</b></div></div>';
-    });
-  }
-  h += '<div class="red2"><button class="dugme njezno" onclick="skener()">📷 Doskeniraj</button>' +
-    '<button class="dugme obrub" onclick="prikaziPrijem()">Prijem</button></div>' +
-    '<button class="dugme obrub" onclick="lista();prijemOsvezi()">Na listu prijema</button>';
-  $('ekran').innerHTML = h;
-  window.scrollTo(0, 0);
-}
-
-/* =====================================================================
-   MODUL: PAKOVANJE  (skripta Pakovanje 2.0)
-   ===================================================================== */
-const P = { ime: '', admin: false, linkSifarnik: '', pakovanja: [], pak: null, trenutna: null, porukaUvoza: null, porukaDetalja: '', izabran: null };
-const ST_P = { ZA_PAK: 'Za pakovanje', U_TOKU: 'U toku', ZA_IZV: 'Za izveštaj', OK: 'Završeno', RAZLIKE: 'Završeno - razlike' };
-function apiK(fn) { return poziv(modul('pakovanje').api, fn, Array.prototype.slice.call(arguments, 1)); }
-function pakAktivno(st) { return st === ST_P.ZA_PAK || st === ST_P.U_TOKU; }
-function pakZavrseno(st) { return st === ST_P.OK || st === ST_P.RAZLIKE; }
-
-/* boje rezultata - iste kao u izveštaju skripte */
-const REZ_P = [
-  ['Manje', '#ffcdd2', '#b71c1c'], ['Više', '#c8e6c9', '#1b5e20'], ['Nije', '#e1bee7', '#4a148c'],
-  ['Dodato', '#bbdefb', '#0d47a1'], ['ručno', '#e8f5e9', '#1b5e20'], ['Spakovano', '#e8f5e9', '#1b5e20']
-];
-function bojaRez(t) { for (let i = 0; i < REZ_P.length; i++) if (String(t).indexOf(REZ_P[i][0]) >= 0) return REZ_P[i]; return null; }
-/* redosled kao u AppSheet izveštaju: manje, više, nije spakovano, dodato, na komad, ostalo */
-function redosledP(s) {
-  const r = s.rezultat;
-  if (r.indexOf('Manje') >= 0) return 1; if (r.indexOf('Više') >= 0) return 2; if (r.indexOf('Nije') >= 0) return 3;
-  if (s.trazeno === 0) return 4; if (s.naKomad) return 5; return 6;
-}
-
-function pakStart(r) {
-  P.ime = r.ime; P.admin = r.admin; P.linkSifarnik = r.linkSifarnik; P.pakovanja = r.pakovanja;
-  pakLista();
-}
-
-function pakOsvezi() {
-  if (S.ekran === 'p_detalj' && P.pak) { const id = P.pak.pakovanje.id; return posleCuvanja(function () { pakOtvori(id); }); }
-  if (S.ekran !== 'p_lista') return;
-  cekaj('Osvežavam...');
-  apiK('apiPakovanja').then(function (l) { P.pakovanja = l; gotovo(); pakLista(); }).catch(greska);
-  ucitajSifarnik().catch(function () {});
-}
-
-function pakNazad() {
-  zaustaviKameru();
-  if (S.ekran === 'pakuj' || S.ekran === 'p_izmena' || S.ekran === 'p_dodaj') return pakDetalj();
-  if (S.ekran === 'p_lista') return pocetna();
-  posleCuvanja(function () { pakLista(); pakOsveziListu(); });
-}
-function pakOsveziListu() {
-  apiK('apiPakovanja').then(function (l) { P.pakovanja = l; if (S.ekran === 'p_lista') pakLista(); }).catch(function () {});
-}
-
-/* ---------- lista internih prenosa ---------- */
-function pakLista() {
-  zaustaviKameru();
-  S.ekran = 'p_lista'; P.pak = null;
-  postaviNaslov('Pakovanje · magacin', APP.dostupni.length > 1);
-  let h = '<button class="dugme zeleno" onclick="pakUvoz()">📥 Uvezi nove interne prenose</button>';
-  if (P.linkSifarnik) h += '<button class="dugme obrub" onclick="pakSifarnik()">🔄 Osveži šifarnik</button>';
-  if (P.porukaUvoza) h += '<div class="info">' + P.porukaUvoza.map(esc).join('<br>') + '</div>';
-  const aktivna = P.pakovanja.filter(function (x) { return !pakZavrseno(x.status); });
-  const zavrsena = P.pakovanja.filter(function (x) { return pakZavrseno(x.status); });
-  if (!P.pakovanja.length) h += '<div class="info">Nema internih prenosa. Ubacite izvezeni fajl u folder Za pakovanje i kliknite 📥 Uvezi.</div>';
-  if (aktivna.length) {
-    h += '<div class="grupa">Za pakovanje (' + aktivna.length + ')</div>';
-    aktivna.forEach(function (x) {
-      const proc = x.ukupno ? Math.round(100 * x.spakovano / x.ukupno) : 0;
-      h += '<div class="kartica klik" onclick="pakOtvori(\'' + esc(x.id) + '\')">' + cipStatusa(x.status) +
-        '<div class="naslov">📦 ' + esc(x.apoteka) + ' · ' + esc(x.broj) + '</div>' +
-        '<div class="sitno">' + esc(x.datum) + ' · ' + x.ukupno + ' stavki · spakovano ' + x.spakovano + (x.preskoceno ? ' · preskočeno ' + x.preskoceno : '') +
-        (x.zaposleni ? ' · ' + esc(x.zaposleni) : '') + '</div>' +
-        '<div class="traka"><div style="width:' + proc + '%"></div></div></div>';
-    });
-  }
-  if (zavrsena.length) {
-    h += '<div class="grupa">Završeno (' + zavrsena.length + ')</div>';
-    zavrsena.forEach(function (x) {
-      h += '<div class="kartica klik" onclick="pakOtvori(\'' + esc(x.id) + '\')">' + cipStatusa(x.status) +
-        '<div class="naslov">📦 ' + esc(x.apoteka) + ' · ' + esc(x.broj) + '</div>' +
-        '<div class="sitno">' + esc(x.zavrseno || x.datum) + (x.poruka ? ' · ' + esc(x.poruka) : '') + '</div></div>';
-    });
-  }
-  h += '<div class="verzija">Alfa lek · Roba ' + VERZIJA_APP + '</div>';
-  $('ekran').innerHTML = h;
-  window.scrollTo(0, 0);
-}
-
-function pakUvoz() {
-  cekaj('Uvozim interne prenose...');
-  apiK('apiUvoz').then(function (r) {
-    gotovo(); P.pakovanja = r.pakovanja; P.porukaUvoza = r.linije;
-    poruka(r.uvezeno ? 'Uvezeno: ' + r.uvezeno : 'Nema novih internih prenosa.', r.uvezeno ? '#43a047' : '#5b7a99');
-    pakLista();
-  }).catch(greska);
-}
-
-function pakSifarnik() {
-  cekaj('Osvežavam šifarnik... (do jednog minuta)');
-  apiK('apiOsveziSifarnik').then(function (r) {
-    P.porukaUvoza = ['🔄 Šifarnik:'].concat(r.linije || []);
-    cekaj('Preuzimam novi šifarnik na telefon...');
-    return ucitajSifarnik().then(function () { gotovo(); poruka('Šifarnik je osvežen.'); }, function (e) { gotovo(); poruka('Šifarnik nije preuzet: ' + e.message, '#c62828'); });
-  }).then(function () { if (S.ekran === 'p_lista') pakLista(); }).catch(greska);
-}
-
-/* ---------- jedan interni prenos ---------- */
-function pakOtvori(id) {
-  cekaj('Otvaram...');
-  apiK('apiPakovanje', id).then(function (d) { gotovo(); P.pak = d; P.porukaDetalja = ''; pakDetalj(); }).catch(greska);
-}
-
-function stavkaP(id) { return P.pak.stavke.filter(function (s) { return s.id === id; })[0]; }
-function brojNespakovanih() { return P.pak.stavke.filter(function (s) { return s.trazeno !== 0 && s.status !== 'Spakovano'; }).length; }
-
-function pakDetalj() {
-  zaustaviKameru();
-  S.ekran = 'p_detalj';
-  const pk = P.pak.pakovanje, st = P.pak.stavke;
-  const aktivno = pakAktivno(pk.status), zavrseno = pakZavrseno(pk.status);
-  postaviNaslov(pk.apoteka + ' · ' + pk.broj, true);
-  const ukupno = st.filter(function (s) { return s.trazeno !== 0; }).length;
-  const spak = st.filter(function (s) { return s.trazeno !== 0 && s.status === 'Spakovano'; }).length;
-  const presk = st.filter(function (s) { return s.status === 'Preskočeno'; }).length;
-  const ceka = st.filter(function (s) { return s.status === 'Čeka' || s.status === 'Preskočeno'; }).length;
-
-  let h = '<div class="dokument">' + cipStatusa(pk.status) + '<div class="oznaka">🚚 Interni prenos</div>' +
-    '<div class="naslov">' + esc(pk.apoteka) + ' · ' + esc(pk.broj) + '</div>' +
-    '<div class="sitno">Uvezeno ' + esc(pk.datum) + (pk.zaposleni ? ' · ' + esc(pk.zaposleni) : '') + '</div>';
-  if (zavrseno) {
-    const boja = pk.status === ST_P.RAZLIKE ? '#c62828' : '#2e7d32';
-    h += '<div style="margin-top:8px;font-weight:bold;color:' + boja + '">' + (pk.status === ST_P.RAZLIKE ? '❗ ' : '✅ ') + esc(pk.status) +
-      (pk.poruka ? ' · ' + esc(pk.poruka) : '') + '</div>' + (pk.zavrseno ? '<div class="sitno">Završeno ' + esc(pk.zavrseno) + '</div>' : '');
-  } else {
-    h += '<div class="napredak" style="margin-top:6px">Spakovano <b>' + spak + '</b> od ' + ukupno + (presk ? ' · preskočeno ' + presk : '') + '</div>' +
-      '<div class="traka"><div style="width:' + (ukupno ? Math.round(100 * spak / ukupno) : 0) + '%"></div></div>';
-  }
-  if (aktivno) {
-    h += '<label>Ko pakuje</label><input id="zap" value="' + esc(lsGet('zaposleni') || '') + '" autocomplete="off" placeholder="Vaše ime">';
-    if (ceka) h += '<button class="dugme zeleno" onclick="pakPocni()">▶️ Pakuj' + (spak ? ' (nastavi)' : '') + '</button>';
-    h += '<div class="red2"><button class="dugme njezno" onclick="pDodaj()">➕ Dodaj artikal</button>' +
-      '<button class="dugme ' + (ceka ? 'obrub' : 'zeleno') + '" onclick="pakZavrsi()">✅ Završi pakovanje</button></div>';
-  } else if (pk.status === ST_P.ZA_IZV) {
-    h += '<button class="dugme zeleno" onclick="pakZavrsi()">✅ Napravi izveštaj</button>';
-  }
-  h += '</div>';
-  if (P.porukaDetalja) h += '<div class="ok">' + esc(P.porukaDetalja) + '</div>';
-
-  if (zavrseno) {
-    const brojac = {};
-    st.forEach(function (s) { const b = bojaRez(s.rezultat); if (b) brojac[b[0]] = (brojac[b[0]] || 0) + 1; });
-    h += '<div class="legenda">' + REZ_P.map(function (b) {
-      return brojac[b[0]] ? '<span style="background:' + b[1] + ';color:' + b[2] + '">' + esc(primerRez(b[0])) + ': ' + brojac[b[0]] + '</span>' : '';
-    }).join('') + '</div>';
-  }
-
-  h += '<div class="grupa">Artikli (' + st.length + ')</div><div id="redStatus" class="ceka"></div>';
-  st.slice().sort(function (a, b) { return redosledP(a) - redosledP(b) || a.redni - b.redni; }).forEach(function (s) {
-    const b = bojaRez(s.rezultat);
-    let poz = b ? b[1] : '#fff';
-    if (!b && s.status === 'Spakovano' && s.trazeno !== 0 && s.spakovano < s.trazeno) poz = '#fce4ec';
-    if (!b && s.status === 'Spakovano' && s.spakovano > s.trazeno) poz = '#e8f5e9';
-    const stanje = s.rezultat || (s.status + (s.naKomad ? ' ⚠️' : ''));
-    const spakVid = s.status === 'Spakovano' ? s.spakovano : 0;
-    h += '<div class="kartica' + (aktivno ? ' klik' : '') + '" style="background:' + poz + '"' + (aktivno ? ' onclick="pakIzmena(\'' + esc(s.id) + '\')"' : '') + '>' +
-      '<div class="stavka"><div><div class="naslov' + (s.naKomad ? ' komad' : '') + '">' + esc(s.naziv) + '</div>' +
-      '<div class="sitno">Traženo: <b>' + s.trazeno + '</b> · Spakovano: <b>' + spakVid + '</b>' + (s.lokacija ? ' · 📍 ' + esc(s.lokacija) : '') + '</div></div>' +
-      '<div class="sitno" style="font-weight:bold;color:' + (b ? b[2] : '#555') + ';text-align:right">' + esc(stanje) + '</div></div></div>';
-  });
-  if (aktivno || P.admin) {
-    h += '<div style="height:18px"></div><button class="dugme obrub-crv" onclick="pakObrisi()">🗑️ Obriši prenos</button>';
-  }
-  $('ekran').innerHTML = h;
-  osveziBrojac();
-}
-function primerRez(k) {
-  return { 'Manje': '🔴 Manje', 'Više': '🟢 Više', 'Nije': '🟣 Nije spakovano', 'Dodato': '🔵 Dodato van prenosa', 'ručno': '✅ Ručno', 'Spakovano': '✅ Spakovano' }[k] || k;
-}
-
-function zapamtiIme() {
-  const z = $('zap') ? $('zap').value.trim() : (lsGet('zaposleni') || '');
-  if (z) lsSet('zaposleni', z);
-  return z;
-}
-
-function pakPocni() {
-  const ime = zapamtiIme();
-  if (!ime) return poruka('Upišite svoje ime.', '#c62828');
-  const pk = P.pak.pakovanje;
-  if (pk.status === ST_P.ZA_PAK) pk.status = ST_P.U_TOKU;
-  uRed({ url: modul('pakovanje').api, fn: 'apiPocniPakovanje', args: [pk.id, ime], naziv: 'početak pakovanja', kol: '' });
-  sledeca(null);
-}
-
-/* sledeća kartica: prvo one koje čekaju (po rednom broju), pa preskočene (kojim su redom preskočene) */
-function sledeca(odId) {
-  const st = P.pak.stavke;
-  const cekaju = st.filter(function (s) { return s.status === 'Čeka' && s.id !== odId; }).sort(function (a, b) { return a.redni - b.redni; });
-  if (cekaju.length) return pakujKartica(cekaju[0].id);
-  const presk = st.filter(function (s) { return s.status === 'Preskočeno' && s.id !== odId; }).sort(function (a, b) { return a.vremeMs - b.vremeMs; });
-  if (presk.length) return pakujKartica(presk[0].id);
-  const s = odId ? stavkaP(odId) : null;
-  if (s && s.status === 'Preskočeno') return pakujKartica(s.id);   // ostala je samo ova
-  P.porukaDetalja = 'Sve stavke su obrađene. Kliknite ✅ Završi pakovanje.';
-  pakDetalj();
-}
-
-/* ---------- kartica artikla (pakovanje) ---------- */
-function pakujKartica(id) {
-  const s = stavkaP(id);
-  if (!s) return pakDetalj();
-  S.ekran = 'pakuj'; P.trenutna = id;
-  SKEN.primi = pakKod;
-  const pk = P.pak.pakovanje;
-  postaviNaslov(pk.apoteka + ' · ' + pk.broj, true);
-  const ukupno = P.pak.stavke.filter(function (x) { return x.trazeno !== 0; }).length;
-  const kol = s.status === 'Spakovano' ? s.spakovano : (s.spakovano || s.trazeno);
-  $('ekran').innerHTML =
-    '<div class="kartica" style="border:3px solid ' + (s.naKomad ? '#c62828' : '#8a6fc4') + '">' +
-    '<div class="napredak">' + (s.status === 'Preskočeno' ? '🔁 ' : '') + s.redni + ' / ' + ukupno + (s.lokacija ? '  ·  📍 ' + esc(s.lokacija) : '') +
-    ' <span id="redStatus" class="ceka"></span></div>' +
-    '<div class="kNaziv' + (s.naKomad ? ' komad' : '') + '">' + esc(s.naziv) + '</div>' +
-    '<div class="kKol">📦 SPAKUJ: ' + s.trazeno + (s.naKomad ? ' KOMADA' : ' kom') + '</div>' +
-    (s.naKomad ? '<div class="upoz">⚠️ ARTIKAL NA KOMAD! Spakuj ' + s.trazeno + ' KOMADA, ne kutija!</div>' : '') +
-    '<label>' + (s.naKomad ? '✏️ Spakovano KOMADA (promeni ako ima manje)' : '✏️ Spakovano (promeni ako ima manje)') + '</label>' +
-    '<div class="kol"><button onclick="pomeriP(-1)">−</button><input id="pkol" type="number" inputmode="decimal" value="' + kol + '">' +
-    '<button onclick="pomeriP(1)">+</button></div></div>' +
-    '<div class="deo">📷 Skenirajte barkod za potvrdu</div>' +
-    skenerDeo(true) +
-    '<div class="red2"><input id="rucniKod" inputmode="numeric" autocomplete="off" placeholder="ili ukucajte barkod">' +
-    '<button id="dugOK" class="dugme plavo" style="flex:0 0 90px;margin:0" onclick="pakKod($(\'rucniKod\').value, true)">OK</button></div>' +
-    '<div class="red2"><button class="dugme obrub" onclick="pakPreskoci()">⏭️ Preskoči</button>' +
-    '<button class="dugme obrub" onclick="pakBezBarkoda()">✋ Bez barkoda</button></div>' +
-    '<button class="dugme obrub" onclick="pakDetalj()">📋 Spisak artikala</button>';
-  osveziBrojac();
-  pokreniSkener();
-  window.scrollTo(0, 0);
-}
-function pomeriP(d) { const i = $('pkol'); i.value = Math.max(0, (parseFloat(i.value) || 0) + d); }
-
-function pakKod(kod, namerno) {
-  kod = String(kod || '').trim();
-  if (!kod) return;
-  if (S.ekran === 'p_dodaj') return pDodajKod(kod);
-  if (S.ekran !== 'pakuj') return;
-  if (!SIF.ok) return poruka('Šifarnik se još učitava, pokušajte za trenutak.', '#fb8c00');
-  if ($('rucniKod')) $('rucniKod').value = '';
-  const s = stavkaP(P.trenutna);
-  const a = nadjiArtikal(kod);
-  if (!a) {
-    zvuk(false);
-    $('nadjeno').innerHTML = '<div class="upoz">❌ Barkod ' + esc(ocistiKod(kod)) + ' nije u šifarniku.</div>';
-    return;
-  }
-  if (a.id !== s.idArtikla) {
-    zvuk(false);
-    $('nadjeno').innerHTML = '<div class="upoz">❌ POGREŠAN ARTIKAL! Skenirali ste: ' + esc(a.naziv) + '</div>';
-    return;
-  }
-  potvrdiKarticu(s, a.barkod, false);
-}
-
-function potvrdiKarticu(s, barkod, rucno) {
-  const kol = parseFloat($('pkol').value);
-  if (!(kol >= 0)) return poruka('Upišite spakovanu količinu.', '#c62828');
-  const pre = { status: s.status, spakovano: s.spakovano, barkod: s.barkod, rucno: s.rucno, vremeMs: s.vremeMs };
-  s.status = 'Spakovano'; s.spakovano = kol; s.barkod = rucno ? '' : barkod; s.rucno = rucno; s.vremeMs = Date.now();
-  uRed({
-    url: modul('pakovanje').api, fn: 'apiSpakuj', args: [s.id, { spakovano: kol, barkod: barkod || '', rucno: rucno }],
-    naziv: s.naziv, kol: kol, lokalna: s,
-    ukloni: function () { Object.assign(s, pre); },
-    posleGreske: function () { if (S.ekran === 'p_detalj') pakDetalj(); }
-  });
-  zvuk(true);
-  poruka('✓ ' + s.naziv + ' × ' + kol + (rucno ? ' (ručno)' : ''));
-  sledeca(s.id);
-}
-
-function pakBezBarkoda() {
-  const s = stavkaP(P.trenutna);
-  if (!confirmLako('Potvrditi „' + s.naziv + '“ bez barkoda?')) return;
-  potvrdiKarticu(s, '', true);
-}
-
-function pakPreskoci() {
-  const s = stavkaP(P.trenutna);
-  const pre = { status: s.status, vremeMs: s.vremeMs };
-  s.status = 'Preskočeno'; s.vremeMs = Date.now(); s.barkod = '';
-  uRed({
-    url: modul('pakovanje').api, fn: 'apiPreskoci', args: [s.id], naziv: s.naziv + ' (preskakanje)', kol: '', lokalna: s,
-    ukloni: function () { Object.assign(s, pre); }
-  });
-  sledeca(s.id);
-}
-
-/* ---------- izmena količine / brisanje dodatog artikla ---------- */
-function pakIzmena(id) {
-  const s = stavkaP(id);
-  if (!s) return;
-  S.ekran = 'p_izmena';
-  postaviNaslov('Izmena', true);
-  const kol = s.status === 'Spakovano' ? s.spakovano : (s.spakovano || s.trazeno);
-  let h = '<div class="kartica"><div class="kNaziv' + (s.naKomad ? ' komad' : '') + '">' + esc(s.naziv) + '</div>' +
-    '<div class="sitno">Traženo: <b>' + s.trazeno + '</b> · Stanje: ' + esc(s.rezultat || s.status) + '</div>' +
-    '<label>✏️ Spakovano' + (s.naKomad ? ' KOMADA' : '') + '</label>' +
-    '<div class="kol"><button onclick="pomeriP(-1)">−</button><input id="pkol" type="number" inputmode="decimal" value="' + kol + '">' +
-    '<button onclick="pomeriP(1)">+</button></div>' +
-    '<button class="dugme zeleno" onclick="pakSacuvajKolicinu(\'' + esc(s.id) + '\')">Sačuvaj količinu</button>';
-  if (s.status !== 'Spakovano') h += '<button class="dugme njezno" onclick="pakujKartica(\'' + esc(s.id) + '\')">▶️ Pakuj ovaj artikal</button>';
-  if (s.trazeno === 0) h += '<button class="dugme obrub-crv" onclick="pakObrisiStavku(\'' + esc(s.id) + '\')">Obriši artikal</button>';
-  h += '</div><button class="dugme obrub" onclick="pakDetalj()">Nazad na spisak</button>';
-  $('ekran').innerHTML = h;
-}
-
-function pakSacuvajKolicinu(id) {
-  const s = stavkaP(id);
-  const kol = parseFloat($('pkol').value);
-  if (!(kol >= 0)) return poruka('Količina nije ispravna.', '#c62828');
-  const pre = s.spakovano;
-  s.spakovano = kol;
-  uRed({ url: modul('pakovanje').api, fn: 'apiIzmeniKolicinu', args: [s.id, kol], naziv: s.naziv, kol: kol, lokalna: s,
-    ukloni: function () { s.spakovano = pre; } });
-  poruka('Količina je sačuvana.');
-  pakDetalj();
-}
-
-function pakObrisiStavku(id) {
-  const s = stavkaP(id);
-  if (!confirmLako('Obrisati „' + s.naziv + '“ sa spiska?')) return;
-  posleCuvanja(function () {
-    cekaj('Brišem...');
-    apiK('apiObrisiStavku', id).then(function () {
-      gotovo();
-      P.pak.stavke = P.pak.stavke.filter(function (x) { return x.id !== id; });
-      poruka('Artikal je obrisan.'); pakDetalj();
-    }).catch(greska);
-  });
-}
-
-/* ---------- dodavanje artikla van prenosa ---------- */
-function pDodaj() {
-  zaustaviKameru();
-  S.ekran = 'p_dodaj'; P.izabran = null;
-  SKEN.primi = pakKod;
-  postaviNaslov('➕ Dodaj artikal', true);
-  $('ekran').innerHTML =
-    '<div class="info">Artikal koji nije na internom prenosu. Skenirajte ga ili ga potražite po nazivu.</div>' +
-    skenerDeo(true) +
-    '<div class="red2"><input id="rucniKod" inputmode="numeric" autocomplete="off" placeholder="ili ukucajte barkod">' +
-    '<button id="dugOK" class="dugme plavo" style="flex:0 0 90px;margin:0" onclick="pDodajKod($(\'rucniKod\').value)">OK</button></div>' +
-    '<label>Ručni izbor po nazivu</label><input id="pretraga" placeholder="Upišite deo naziva (najmanje 3 slova)" autocomplete="off">' +
-    '<div id="rezPretrage"></div>' +
-    '<button class="dugme obrub" onclick="pakDetalj()">Nazad na spisak</button>';
-  $('pretraga').addEventListener('input', pDodajPretrazi);
-  pokreniSkener();
-}
-
-function pDodajKod(kod) {
-  kod = String(kod || '').trim();
-  if (!kod) return;
-  if (!SIF.ok) return poruka('Šifarnik se još učitava, pokušajte za trenutak.', '#fb8c00');
-  if ($('rucniKod')) $('rucniKod').value = '';
-  const a = nadjiArtikal(kod);
-  if (!a) { zvuk(false); $('nadjeno').innerHTML = '<div class="upoz">❌ Ovaj barkod nije u šifarniku. Potražite artikal po nazivu.</div>'; return; }
-  zvuk(true);
-  pDodajKartica(a);
-}
-
-function pDodajPretrazi() {
-  const q = $('pretraga').value.trim().toLowerCase();
-  if (q.length < 3) { $('rezPretrage').innerHTML = ''; return; }
-  const delovi = q.split(/\s+/), rez = [];
-  for (let i = 0; i < SIF.a.length && rez.length < 40; i++) {
-    const n = SIF.a[i][1].toLowerCase();
-    if (delovi.every(function (d) { return n.indexOf(d) >= 0; })) rez.push(i);
-  }
-  $('rezPretrage').innerHTML = rez.length ? rez.map(function (i) {
-    const a = SIF.a[i];
-    return '<div class="kartica klik" onclick="pDodajIzaberi(' + i + ')"><div class="naslov' + (a[2] ? ' komad' : '') + '">' + esc(a[1]) +
-      '</div><div class="sitno">ID ' + esc(a[0]) + (a[2] ? ' · <span class="komad">⚠️ na komad</span>' : '') + '</div></div>';
-  }).join('') : '<div class="info">Nema artikla sa tim nazivom.</div>';
-}
-function pDodajIzaberi(i) {
-  const a = SIF.a[i];
-  $('rezPretrage').innerHTML = ''; $('pretraga').value = '';
-  pDodajKartica({ id: a[0], naziv: a[1], komad: a[2] === 1, barkod: '' });
-  window.scrollTo(0, 0);
-}
-
-function pDodajKartica(a) {
-  if (P.pak.stavke.some(function (s) { return s.idArtikla === a.id; })) {
-    zvuk(false);
-    $('nadjeno').innerHTML = '<div class="upoz">⚠️ ' + esc(a.naziv) + ' je već na spisku – promenite količinu na njegovoj kartici.</div>';
-    return;
-  }
-  P.izabran = a;
-  $('nadjeno').innerHTML = '<div class="kartica" style="border:3px solid ' + (a.komad ? '#c62828' : '#8a6fc4') + '">' +
-    '<div class="naslov' + (a.komad ? ' komad' : '') + '">' + esc(a.naziv) + '</div>' +
-    (a.komad ? '<div class="upoz">⚠️ ARTIKAL NA KOMAD! Upišite broj KOMADA.</div>' : '') +
-    '<div class="kol"><button onclick="pomeriP(-1)">−</button><input id="pkol" type="number" inputmode="decimal" value="1">' +
-    '<button onclick="pomeriP(1)">+</button></div>' +
-    '<div class="red2"><button class="dugme zeleno" id="dugSacuvaj" onclick="pDodajSacuvaj()">Dodaj' + (jeRacunar() ? ' (Enter)' : '') + '</button>' +
-    '<button class="dugme obrub" onclick="$(\'nadjeno\').innerHTML=\'\';P.izabran=null">Otkaži</button></div></div>';
-  if (a.komad || jeRacunar()) setTimeout(function () { const i = $('pkol'); if (i) { i.focus(); i.select(); } }, 60);
-}
-
-function pDodajSacuvaj() {
-  const a = P.izabran;
-  if (!a) return;
-  const kol = parseFloat($('pkol').value);
-  if (!(kol > 0)) return poruka('Količina mora biti veća od nule.', '#c62828');
-  const s = { id: noviId(), redni: 9999, lokacija: '', idArtikla: a.id, naziv: a.naziv, trazeno: 0, naKomad: a.komad,
-    spakovano: kol, barkod: a.barkod || '', rucno: !a.barkod, status: 'Spakovano', vremeMs: Date.now(), rezultat: '' };
-  const pak = P.pak;
-  pak.stavke.push(s);
-  uRed({
-    url: modul('pakovanje').api, fn: 'apiDodajArtikal',
-    args: [pak.pakovanje.id, { id: s.id, idArtikla: a.id, naziv: a.naziv, naKomad: a.komad, spakovano: kol, barkod: a.barkod || '' }],
-    naziv: a.naziv, kol: kol, lokalna: s,
-    ukloni: function () { const i = pak.stavke.indexOf(s); if (i >= 0) pak.stavke.splice(i, 1); },
-    posleGreske: function () { if (S.ekran === 'p_detalj') pakDetalj(); }
-  });
-  P.izabran = null;
-  poruka('✓ Dodato: ' + a.naziv + ' × ' + kol);
-  P.porukaDetalja = '';
-  pakDetalj();
-}
-
-/* ---------- završetak i brisanje ---------- */
-function pakZavrsi() {
-  zapamtiIme();
-  const nesp = brojNespakovanih();
-  if (!confirmLako('Završiti pakovanje? Nespakovanih artikala: ' + nesp)) return;
-  const id = P.pak.pakovanje.id;
-  posleCuvanja(function () {
-    cekaj('Pravim izveštaj...');
-    apiK('apiZavrsi', id).then(function (d) {
-      gotovo(); P.pak = d; P.porukaDetalja = '';
-      const i = P.pakovanja.findIndex(function (x) { return x.id === id; });
-      if (i >= 0) P.pakovanja[i] = d.pakovanje;
-      zvuk(d.pakovanje.status === ST_P.OK);
-      pakDetalj(); window.scrollTo(0, 0);
-    }).catch(greska);
-  });
-}
-
-function pakObrisi() {
-  const pk = P.pak.pakovanje;
-  if (!confirmLako('Obrisati interni prenos ' + pk.apoteka + ' ' + pk.broj + ' i svih ' + P.pak.stavke.length + ' stavki?\n\nOvo se ne može vratiti.')) return;
-  posleCuvanja(function () {
-    cekaj('Brišem...');
-    apiK('apiObrisiPakovanje', pk.id).then(function () {
-      gotovo();
-      P.pakovanja = P.pakovanja.filter(function (x) { return x.id !== pk.id; });
-      poruka('Interni prenos je obrisan.'); pakLista();
-    }).catch(greska);
-  });
-}
-
-start();
 </script>
 </body>
 </html>
